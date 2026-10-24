@@ -23,7 +23,8 @@ explicitas. No reactivar envios automaticamente al seguir estas instrucciones.
 - raspberry: captura, sincronizador, pruebas y servicios systemd de usuario.
 - base-de-datos: migraciones 001 y 002 YA aplicadas. No son esquema completo.
 - frontend: copia local aportada; apunta a Render, integracion nueva pendiente.
-- firmware-esp32: reservado para el prototipo, aun no incluido sin credenciales.
+- El prototipo ESP32 aun no esta incluido sin credenciales; su carpeta vacia
+  fue eliminada previamente en GitHub y se respeto ese cambio.
 
 El codigo de reconocimiento del conductor, gestion offline completa de recorridos,
 grabacion indefinida y reportes finales aun no esta implementado.

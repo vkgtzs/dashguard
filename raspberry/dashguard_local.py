@@ -193,6 +193,9 @@ try:
     if 'boot_id' not in {c[1] for c in db.execute('PRAGMA table_info(muestras)')}:
         db.execute('ALTER TABLE muestras ADD COLUMN boot_id TEXT')
         db.commit()
+    if 'boottime_ns' not in {c[1] for c in db.execute('PRAGMA table_info(muestras)')}:
+        db.execute('ALTER TABLE muestras ADD COLUMN boottime_ns INTEGER')
+        db.commit()
 
     hilo = threading.Thread(target=leer_gps, daemon=True)
     hilo.start()
@@ -204,6 +207,8 @@ try:
         while not avisos.empty():
             print(avisos.get())
 
+        # Marca del host inmediatamente antes de leer I2C; no timestamp interno IMU.
+        captura_ns = time.clock_gettime_ns(time.CLOCK_BOOTTIME)
         datos = bus.read_i2c_block_data(DIRECCION, 0x3B, 14)
 
         # No guardar la anomalia de bloque completamente en cero.
@@ -231,9 +236,9 @@ try:
         fecha = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         cursor = db.execute(
             """INSERT INTO muestras
-               (fecha_hora_pc, monotonic_s, datos_json, boot_id)
-               VALUES (?, ?, ?, ?)""",
-            (fecha, inicio, json.dumps(muestra, allow_nan=False), BOOT_ID),
+               (fecha_hora_pc, monotonic_s, datos_json, boot_id, boottime_ns)
+               VALUES (?, ?, ?, ?, ?)""",
+            (fecha, inicio, json.dumps(muestra, allow_nan=False), BOOT_ID, captura_ns),
         )
         db.commit()
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=Reintentar sincronizacion DashGuard cada 30 segundos
+
+[Timer]
+OnStartupSec=30s
+OnUnitInactiveSec=30s
+Unit=dashguard-sync.service
+
+[Install]
+WantedBy=timers.target

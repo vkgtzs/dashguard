@@ -1,0 +1,10 @@
+[Unit]
+Description=Sincronizar muestras pendientes de DashGuard
+
+[Service]
+Type=oneshot
+Environment=DASHGUARD_API_URL=http://192.168.1.135:3000/mediciones
+EnvironmentFile=-%h/.config/dashguard/sync.env
+ExecStart=/usr/bin/python3 -u %h/sincronizar.py --url ${DASHGUARD_API_URL} --limite 100
+TimeoutStartSec=infinity
+UMask=0077

@@ -1,0 +1,16 @@
+[Unit]
+Description=Capturar IMU y GPS de DashGuard en SQLite
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u %h/dashguard_local.py
+Restart=always
+RestartSec=10s
+KillSignal=SIGINT
+TimeoutStopSec=15s
+UMask=0077
+
+[Install]
+WantedBy=default.target

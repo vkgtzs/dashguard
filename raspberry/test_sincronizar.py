@@ -77,6 +77,16 @@ class Pruebas(unittest.TestCase):
         self.assertFalse(sincronizar(self.db, 'http://pc:3000/mediciones', enviar=incorrecta))
         self.assertIsNone(self.db.execute('SELECT enviada_fecha FROM cola_sync').fetchone()[0])
 
+    def test_fallo_imu_permanece_local_sin_bloquear_sanas(self):
+        datos={**self.datos,'imu_valida':False,'magnitud_ms2':None,'gps_valido':True}
+        self.db.execute('UPDATE muestras SET datos_json=? WHERE id=1',(json.dumps(datos),))
+        self.db.execute('INSERT INTO muestras (fecha_hora_pc, datos_json) VALUES (?,?)',
+                        ('2026-10-21T18:30:00Z',json.dumps(self.datos)))
+        self.db.commit()
+        self.preparar()
+        self.assertEqual(self.db.execute('SELECT count(*) FROM muestras').fetchone()[0],2)
+        self.assertEqual(self.db.execute('SELECT muestra_local_id FROM cola_sync').fetchone()[0],2)
+
 
 if __name__ == '__main__':
     unittest.main()

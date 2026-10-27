@@ -81,6 +81,11 @@ def encolar(db, dispositivo):
         """).fetchall()
         for fila in filas:
             datos = json.loads(fila["datos_json"])
+            # El contrato actual exige valor de aceleracion numerico. No inventar
+            # ceros ni bloquear muestras sanas detras de filas solo GPS/fallo IMU.
+            if (datos.get('imu_valida') is False or datos.get('prueba_fallo_imu') is True
+                    or datos.get('magnitud_ms2') is None):
+                continue
             valido = datos["gps_valido"]
             if not isinstance(valido, bool):
                 raise ValueError(f"GPS invalido en muestra {fila['id']}")
@@ -105,6 +110,7 @@ def resumen(db):
         "SELECT count(*), coalesce(sum(enviada_fecha IS NOT NULL), 0) FROM cola_sync"
     ).fetchone()
     print(f"Muestras: {total} | Enviadas: {enviadas} | Pendientes: {en_cola - enviadas}")
+    print(f"Sin encolar (incluye fallos IMU conservados localmente): {total - en_cola}")
 
 
 def sincronizar(db, url, limite=100, enviar=None):

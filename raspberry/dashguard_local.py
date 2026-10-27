@@ -1,4 +1,5 @@
 import json
+import argparse
 import math
 import queue
 import sqlite3
@@ -8,6 +9,7 @@ from pathlib import Path
 
 import serial
 from smbus import SMBus
+from imu_segura import IMUSegura
 
 DIRECCION = 0x68
 CADUCIDAD_GPS = 10
@@ -160,26 +162,10 @@ db = None
 hilo = None
 
 try:
-    bus = SMBus(1)
-    if bus.read_byte_data(DIRECCION, 0x75) != 0x68:
-        raise RuntimeError("Identidad del MPU6050 inesperada")
-
-    bus.write_byte_data(DIRECCION, 0x6B, 0x00)
-    time.sleep(0.1)
-    bus.write_byte_data(DIRECCION, 0x1B, 0x00)
-    bus.write_byte_data(DIRECCION, 0x1C, 0x00)
-
-    print("Calibrando giroscopio: manten el sensor quieto.")
-    time.sleep(2)
-    sumas = [0.0, 0.0, 0.0]
-    for _ in range(500):
-        datos = bus.read_i2c_block_data(DIRECCION, 0x43, 6)
-        for eje, inicio in enumerate((0, 2, 4)):
-            sumas[eje] += entero16(datos, inicio) / 131.0
-        time.sleep(0.01)
-    offsets = [s / 500 for s in sumas]
-    print("Offsets [grados/s]:", offsets)
-
+    argumentos = argparse.ArgumentParser()
+    argumentos.add_argument('--simular-fallo-imu', action='store_true',
+                            help='No accede a IMU; guarda GPS y fallo simulado localmente')
+    opciones = argumentos.parse_args()
     db = sqlite3.connect(CARPETA / "dashguard.sqlite3")
     db.execute("""
         CREATE TABLE IF NOT EXISTS muestras (
@@ -199,6 +185,18 @@ try:
 
     hilo = threading.Thread(target=leer_gps, daemon=True)
     hilo.start()
+    imu = IMUSegura(None)
+    if opciones.simular_fallo_imu:
+        imu.fallar('fallo_simulado')
+    else:
+        try:
+            bus = SMBus(1)
+            imu = IMUSegura(bus)
+            print('Calibrando giroscopio: manten el sensor quieto.')
+            imu.inicializar()
+        except OSError as error:
+            imu.fallar(str(error))
+    print('Estado inicial IMU:', imu.error or 'calibrada', '| Offsets:', imu.offsets)
     print("Guardando una muestra por segundo. Ctrl+C para terminar.")
     print("Base de datos:", CARPETA / "dashguard.sqlite3")
 
@@ -209,28 +207,10 @@ try:
 
         # Marca del host inmediatamente antes de leer I2C; no timestamp interno IMU.
         captura_ns = time.clock_gettime_ns(time.CLOCK_BOOTTIME)
-        datos = bus.read_i2c_block_data(DIRECCION, 0x3B, 14)
-
-        # No guardar la anomalia de bloque completamente en cero.
-        if all(valor == 0 for valor in datos):
-            print("AVISO: bloque IMU en cero; muestra descartada.")
-            time.sleep(1)
-            continue
-
-        ax, ay, az = [
-            entero16(datos, i) / 16384.0 * 9.80665
-            for i in (0, 2, 4)
-        ]
-        gx, gy, gz = [
-            entero16(datos, i) / 131.0 - offsets[eje]
-            for eje, i in enumerate((8, 10, 12))
-        ]
-
         muestra = {
-            "ax_ms2": ax, "ay_ms2": ay, "az_ms2": az,
-            "magnitud_ms2": math.sqrt(ax**2 + ay**2 + az**2),
-            "gx_grados_s": gx, "gy_grados_s": gy, "gz_grados_s": gz,
+            **imu.leer(),
             **obtener_gps(),
+            'prueba_fallo_imu': opciones.simular_fallo_imu,
         }
         # Esta fecha viene del reloj del sistema, no del GPS.
         fecha = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -243,9 +223,11 @@ try:
         db.commit()
 
         estado = "GPS valido" if muestra["gps_valido"] else "Sin GPS valido"
+        estado_imu = (f"A: {muestra['magnitud_ms2']:.2f} m/s2" if muestra['imu_valida']
+                      else f"IMU NO VALIDA: {muestra['imu_error']} (reiniciar captura tras revisar sensor)")
         print(
             f"Guardado #{cursor.lastrowid} | {estado} "
-            f"| A: {muestra['magnitud_ms2']:.2f} m/s2"
+            f"| {estado_imu}"
         )
         parar.wait(max(0, 1 - (time.monotonic() - inicio)))
 

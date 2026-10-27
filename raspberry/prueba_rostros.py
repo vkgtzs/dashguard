@@ -64,7 +64,6 @@ def modelo(cv2, solicitado):
 
 
 def ejecutar(args):
-    import cv2
     from picamera2 import Picamera2
     from picamera2.encoders import H264Encoder
     from picamera2.outputs import FileOutput
@@ -88,8 +87,11 @@ def ejecutar(args):
                 'video_espacio.py', 'video_continuo.py', 'prueba_rostros.py')):
             raise RuntimeError('Hay otro proceso de camara; no se inicia una segunda captura')
     os.umask(0o077)
-    cv2.setNumThreads(1)
-    detector, ruta_modelo = modelo(cv2, args.modelo)
+    cv2, detector, ruta_modelo = None, None, None
+    if args.modo == 'deteccion':
+        import cv2
+        cv2.setNumThreads(1)
+        detector, ruta_modelo = modelo(cv2, args.modelo)
     # Una carpeta nueva por ensayo; nunca sobreescribir ni rotar evidencia previa.
     salida = args.salida.expanduser()
     salida.mkdir(parents=True, exist_ok=False)
@@ -102,7 +104,8 @@ def ejecutar(args):
     camara = Picamera2()
     frames, analisis, sistema = [], [], []
     informe = dict(estado='iniciado', modo=args.modo, duracion_solicitada_s=args.duracion,
-                   opencv=cv2.__version__, modelo=str(ruta_modelo),
+                   opencv=cv2.__version__ if cv2 else None,
+                   modelo=str(ruta_modelo) if ruta_modelo else None,
                    advertencia='Deteccion no es identidad. Sin rostro o poca luz son inciertos.')
     grabando = False
     inicio = time.monotonic()
@@ -182,7 +185,7 @@ def ejecutar(args):
     with (salida/'ffprobe.json').open('w') as verificacion:
         subprocess.run(['ffprobe', '-v', 'error', '-count_frames', '-select_streams', 'v:0',
             '-show_entries', 'stream=nb_read_frames,r_frame_rate,width,height', '-of', 'json',
-            str(salida/'video.h264')], stdout=verificacion, check=True, timeout=30)
+            str(salida/'video.h264')], stdout=verificacion, check=True, timeout=120)
     subprocess.run(['ffmpeg', '-v', 'error', '-n', '-r', '15', '-i', str(salida/'video.h264'),
         '-c:v', 'copy', '-movflags', '+faststart', str(salida/'video.mp4')], check=True, timeout=30)
 

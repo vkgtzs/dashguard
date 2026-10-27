@@ -10,6 +10,15 @@ Referencia primaria: [manual Picamera2](https://datasheets.raspberrypi.com/camer
 La instalacion de referencia usa paquetes apt, no ruedas pip para ARM/Python 3.13:
 `python3-picamera2`, `python3-opencv`, `opencv-data`. Comprobar versiones reales.
 
+Si APT no puede descargar, se pueden transferir los `.deb` exactos desde Windows,
+verificando SHA256 contra `apt-cache show` de la propia Raspberry. En esta sesion
+se prepararon 61 paquetes (46 descargados/verificados en Windows y 15 ya en cache).
+La alternativa sin privilegios extrae con `dpkg-deb -x` en
+`~/dashguard/ensayos-rostros/opencv-local`, sin registrar instalacion en dpkg.
+`con_opencv_local.sh` limita PYTHONPATH y LD_LIBRARY_PATH al proceso del ensayo.
+Indicar el modelo con `--modelo ~/dashguard/ensayos-rostros/opencv-local/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml`.
+Es un entorno de ensayo; no equivale a instalacion definitiva reproducible del sistema.
+
 ## Raspberry: procedimiento
 
 Mantener sincronizacion pausada, verificar procesos y camara libre. Ejecutar
@@ -29,6 +38,10 @@ Limites: 10–180 s por ejecucion, 0.2–5 Hz solicitados, alarma de seguridad,
 256 MiB libres requeridos, permisos privados, carpeta nueva obligatoria.
 No incluye cuota continua: un ensayo de 180 s puede ocupar aproximadamente 90 MB
 sumando H264 y MP4. Conservar evidencia; no repetir indefinidamente sin revisar disco.
+El conteo ffprobe posterior tiene hasta 120 s; el limite original de 30 s fue
+insuficiente para decodificar 60 s en la Zero 2 W. Es posterior a cerrar camara.
+
+Resultados reales de esta sesion: [informe](../docs/rostros-resultados-2026-10-26.md).
 
 Salida privada: H264 original, PTS del codificador, MP4 por copia, `ffprobe.json`
 y `metricas.json`. No subir a Git ni servicios publicos. El JSON guarda tiempos,

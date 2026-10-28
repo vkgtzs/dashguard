@@ -96,11 +96,43 @@ Los originales se conservaron. Raspberry produjo seis MP4 sin recodificar:
 cinco de 300 s y uno de 299.733 s, total 26 996 fotogramas. La nube conserva
 ademas seis bloques finales con esos mismos conteos y un manifiesto de coleccion.
 Cada bloque final se almacena en dos partes privadas por el limite individual
-del plan Free; la pagina reconstruye un MP4 descargable. Esto duplica por ahora
-el almacenamiento del recorrido: no se autorizaron eliminaciones de originales.
+del plan Free; la pagina reconstruye un MP4 descargable. Despues de verificar los SHA256 completos de los seis bloques por streaming,
+el usuario autorizo eliminar SOLO las 164 copias cortas de nube: limpieza
+confirmada; seis bloques finales, metadatos y archivos locales se conservaron.
+El navegador cargo un MP4 de 300 s, readyState=4, sin error, con descarga disponible.
 
 La grabacion directa de 300 s es un cambio posterior: no confundir la
 reagrupacion verificada con un ensayo nuevo de captura directa ya completado.
 
 Evidencia detallada con imagenes, coordenadas o tokens permanece fuera de Git.
 Este documento contiene solo identificadores de ensayo y agregados tecnicos.
+
+### Primer ensayo de captura directa de 300 s
+
+Recorrido `50da2896-3199-4400-83ef-dd51c887853c`: se marco incompleto.
+El chequeo anterior decodificaba H264 y excedio timeout=60 s en el primer segmento
+de 300 s. Se conservaron ambos brutos y los tiempos pendientes.
+Se cambio el chequeo a paquetes/access units H264 con FFprobe, cotejados con
+PTS y SensorTimestamp. La nueva rutina coincide con 165 frames conocidos en
+una fuente del ensayo anterior. Esto no equivale a decodificar cada pixel.
+Una segunda captura real comprueba la correccion; registrar su resultado abajo.
+
+### Cierre de la correccion de segmentos largos
+
+Segunda captura `b1e94f28-beea-4011-9cef-43c19582a942`: dos MP4 completos,
+pero el registrador de sensores termino por database is locked. La causa fue
+calcular SHA/partes de un archivo grande dentro de una transaccion de escritura.
+Se separaron esas lecturas de las transacciones; regresion especifica incluida.
+
+Tercera captura `e4417618-1e2c-4b74-a645-35253962af3a`: el cierre confirmado
+en nube indica completo, error=null, sin parciales. Se recibieron 407 registros,
+incluidos dos videos de 301 y 6.8 s nominales; el primero por 12 partes privadas.
+Temperatura maxima muestreada 52.616 C, throttled=0x0, memoria disponible minima
+239596 KiB. El tiempo efectivo de video fue 307.8 s; no afirmar exactamente 310 s.
+El ensayo permite comprobar el cierre y subida de un segmento largo, pero no
+sustituye un recorrido nuevo de 30 minutos ni una prueba en automovil.
+
+30 pruebas Python pasaron en Windows tras corregir el bloqueo, incluidas las
+regresiones de transacciones, cortes de red y partes. La Raspberry habia pasado
+14 pruebas antes de iniciar esta ultima captura. Las pruebas que fallaron se
+conservan con sus estados reales; no se reescribieron como completas.

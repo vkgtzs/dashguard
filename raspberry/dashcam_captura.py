@@ -91,6 +91,7 @@ def ejecutar(duracion,limite):
             while video.poll() is None:
                 ahora=time.clock_gettime_ns(time.CLOCK_BOOTTIME)
                 db.execute('UPDATE dashcam_recorridos SET ultimo_ns=? WHERE id=?',(ahora,id))
+                db.commit()  # No mantener escritor mientras se calcula SHA de video.
                 recolectar(db,id); db.commit()
                 if time.monotonic()>=proxima_salud:
                     m=salud();mediciones_salud.append(m)

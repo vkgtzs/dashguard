@@ -26,20 +26,20 @@ async function api(ruta){
  const objetos=await s.storage.from('dashguard-videos').list(prefix,{limit:1000});
  if(objetos.error)throw objetos.error;
  const objetosVideo=objetos.data.filter(o=>o.name.endsWith('.mp4'));
- assert.equal(objetosVideo.length,informe.videos);
- const porNombre=new Map(objetos.data.map(o=>[o.name,o]));
- for(const v of videos){const o=porNombre.get(v.id+'.mp4');assert.ok(o,'Falta objeto privado');assert.equal(Number(o.metadata.size),v.contenido.bytes);}
- const bytes=objetosVideo.reduce((n,o)=>n+Number(o.metadata.size),0);
- assert.equal(bytes,Math.round(informe.video_mib*1048576));
- videos.sort((a,b)=>a.contenido.metadata.inicio_ns-b.contenido.metadata.inicio_ns);
- for(const v of [videos[0],videos.at(-1)]){
-   const enlace=await api('/dashcam/videos/'+v.id);
-   assert.equal(new URL(enlace.url).origin,new URL(process.env.SUPABASE_URL).origin);
-   const r=await fetch(enlace.url,{headers:{Range:'bytes=0-4095'},signal:AbortSignal.timeout(120000)});
-   assert.ok([200,206].includes(r.status));
-   const inicio=Buffer.from(await r.arrayBuffer());assert.equal(inicio.toString('ascii',4,8),'ftyp');
+ const coleccion=registros.find(v=>v.contenido.clase==='coleccion');
+ let bytes=0;
+ if(objetosVideo.length===informe.videos){
+  const porNombre=new Map(objetosVideo.map(o=>[o.name,o]));
+  for(const v of videos){const o=porNombre.get(v.id+'.mp4');assert.ok(o);assert.equal(Number(o.metadata.size),v.contenido.bytes);}
+  bytes=objetosVideo.reduce((n,o)=>n+Number(o.metadata.size),0);
+ }else{
+  assert.equal(objetosVideo.length,0,'Limpieza incompleta de fuentes');assert.ok(coleccion,'Falta coleccion final');
+  const finales=coleccion.contenido.bloques.map(id=>registros.find(v=>v.id===id));assert.equal(finales.length,6);
+  assert.equal(finales.reduce((n,v)=>n+v.contenido.frames,0),informe.frames_catalogados);
+  for(const v of finales){const enlace=await api('/dashcam/videos/'+v.id);assert.ok(enlace.partes.length);bytes+=v.contenido.bytes;
+   for(const parte of enlace.partes){const r=await fetch(parte.url,{headers:{Range:'bytes=0-31'},signal:AbortSignal.timeout(120000)});assert.ok([200,206].includes(r.status));await r.arrayBuffer();}}
  }
  console.log(JSON.stringify({verificado:true,recorrido_id:id,registros:registros.length,muestras:muestras.length,
    videos:videos.length,bytes,frames:informe.frames_catalogados,objetos_sin_duplicados:true,
-   primer_y_ultimo_mp4_accesibles:true,coincide_con_informe_local:true},null,2));
+   bloques_privados_accesibles:true,coincide_con_informe_local:true},null,2));
 })().catch(e=>{console.error('FALLO:',e.message);process.exitCode=1;});

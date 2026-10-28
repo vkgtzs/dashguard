@@ -15,6 +15,14 @@ test('checksum se valida sobre bytes UTF-8, sin alterar contenido',()=>{
  assert.equal(validarRegistro(r,'prueba').contenido.nota,'sin posición');
  assert.throws(()=>validarRegistro({...r,contenido_json:texto+' '},'prueba'));
 });
+test('admite tiempos y telemetria de cinco minutos con limite acotado',()=>{
+ const id=randomUUID(),contenido_json=JSON.stringify({metadata:{sensor_timestamps_ns:Array.from({length:4500},(_,i)=>470000000000+i*66666667),muestras:Array.from({length:300},()=>({datos:'x'.repeat(300)}))}});
+ assert.ok(Buffer.byteLength(contenido_json)>128*1024);
+ assert.equal(validarRegistro({id,recorrido_id:id,tipo:'video',contenido_json,sha256:digest(contenido_json)},'prueba').id,id);
+ const excesivo=JSON.stringify({datos:'x'.repeat(512*1024)});
+ assert.throws(()=>validarRegistro({id,recorrido_id:id,tipo:'video',contenido_json:excesivo,sha256:digest(excesivo)},'prueba'));
+});
+
 test('API autentica roles, reintenta sin duplicar y rechaza conflictos',async t=>{
  const registros=new Map(),videos=new Map();
  const fake={from(){return {

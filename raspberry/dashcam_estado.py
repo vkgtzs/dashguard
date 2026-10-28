@@ -70,6 +70,7 @@ def recolectar(db,recorrido,fin_ns=None):
     for m in muestras:
         encolar(db,m['muestra_id'],recorrido,'muestra',dict(fecha_hora=m['fecha_hora_pc'],
           boot_id=m['boot_id'],boottime_ns=m['boottime_ns'],datos=json.loads(m['datos_json'])))
+    db.commit()  # Hash/lectura de MP4 grandes sin bloquear el INSERT de sensores.
     carpeta=Path(trip['carpeta'])
     for video in db.execute('SELECT * FROM videos_espacio WHERE boot_id=? AND inicio_ns>=?',
                              (trip['boot_id'],trip['inicio_ns'])).fetchall():
@@ -86,6 +87,7 @@ def recolectar(db,recorrido,fin_ns=None):
         encolar(db,video['id'],recorrido,'video',contenido)
         db.execute('INSERT INTO dashcam_archivos(id,recorrido_id,ruta,sha256,bytes) VALUES(?,?,?,?,?)',
                    (video['id'],recorrido,str(ruta),sha,ruta.stat().st_size))
+        db.commit()
     return len(muestras)
 
 

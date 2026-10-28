@@ -49,6 +49,23 @@ class Offline(unittest.TestCase):
         self.assertEqual(llamadas,[0,0,1]);self.assertTrue(ruta.exists())
         self.assertIsNotNone(self.db.execute('SELECT confirmado FROM dashcam_archivos').fetchone()[0])
 
+    def test_hash_de_video_no_retiene_transaccion_de_escritura(self):
+        from unittest.mock import patch
+        from dashcam_estado import recolectar
+        carpeta=Path(self.temp.name)/'video';carpeta.mkdir()
+        idvideo=str(uuid.uuid4());archivo=carpeta/'clip.mp4';archivo.write_bytes(b'video sintetico')
+        archivo.with_suffix('.json').write_text('{}')
+        self.db.executescript('CREATE TABLE muestras(id INTEGER PRIMARY KEY,muestra_id TEXT,fecha_hora_pc TEXT,datos_json TEXT,boot_id TEXT,boottime_ns INTEGER); CREATE TABLE videos_espacio(id TEXT,archivo TEXT,boot_id TEXT,inicio_ns INTEGER);')
+        self.db.execute('INSERT INTO dashcam_recorridos VALUES(?,?,?,?,?,?,?,?)',(self.trip,'boot',100,500,None,'activo',str(carpeta),str(uuid.uuid4())))
+        self.db.execute('INSERT INTO videos_espacio VALUES(?,?,?,?)',(idvideo,archivo.name,'boot',101))
+        # El controlador puede haber actualizado ultimo_ns antes de recolectar.
+        self.assertTrue(self.db.in_transaction)
+        def comprobar(ruta):
+            self.assertFalse(self.db.in_transaction,'Hash grande bloqueo al escritor de sensores')
+            return hashlib.sha256(ruta.read_bytes()).hexdigest()
+        with patch('dashcam_estado.sha_archivo',side_effect=comprobar):recolectar(self.db,self.trip)
+        self.assertFalse(self.db.in_transaction)
+
     def test_sin_red_conserva_contenido_uuid_y_reintento(self):
         original=dict(self.db.execute('SELECT * FROM dashcam_outbox').fetchone())
         def fallo(*a,**k):raise URLError('offline simulado')

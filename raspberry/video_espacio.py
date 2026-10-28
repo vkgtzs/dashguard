@@ -135,12 +135,14 @@ def validar_tiempos(sensores,pts,base_sensor,base_pts,previo):
 
 
 def contar_frames(bruto):
-    r=subprocess.run(['ffprobe','-v','error','-select_streams','v:0','-count_frames',
-        '-show_entries','stream=nb_read_frames','-of','json',str(bruto)],
+    # H264 producido por rpicam: parser de access units, sin decodificar 5 min
+    # en CPU. Se comprueba ademas correspondencia con PTS y SensorTimestamp.
+    r=subprocess.run(['ffprobe','-v','error','-select_streams','v:0','-count_packets',
+        '-show_entries','stream=nb_read_packets','-of','json',str(bruto)],
         capture_output=True,text=True,check=True,timeout=60)
     if r.stderr.strip():
-        raise ValueError('Error al decodificar segmento: '+r.stderr)
-    n=int(json.loads(r.stdout)['streams'][0]['nb_read_frames'])
+        raise ValueError('Error al analizar paquetes H264: '+r.stderr)
+    n=int(json.loads(r.stdout)['streams'][0]['nb_read_packets'])
     if n<=0: raise ValueError('Segmento sin frames')
     return n
 

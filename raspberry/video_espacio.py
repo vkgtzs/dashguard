@@ -12,6 +12,7 @@ import json
 import os
 import queue
 import shutil
+import signal
 import sqlite3
 import subprocess
 import threading
@@ -20,6 +21,7 @@ import uuid
 from contextlib import closing
 from pathlib import Path
 from retencion import limpiar
+parar_grabacion=threading.Event()
 
 
 def esquema(db):
@@ -143,7 +145,7 @@ def contar_frames(bruto):
     return n
 
 
-def guardar_clip(db,carpeta,bruto,sensores,pts,fin,boot):
+def guardar_clip(db,carpeta,bruto,sensores,pts,fin,boot,protegido=False):
     identificador=str(uuid.uuid4())
     final=carpeta/(identificador+'.mp4')
     temporal=carpeta/(identificador+'.part.mp4')
@@ -163,15 +165,21 @@ def guardar_clip(db,carpeta,bruto,sensores,pts,fin,boot):
     temporal.rename(final)
     sidecar.write_text(json.dumps(datos,ensure_ascii=False),encoding='utf-8')
     with db:
-        db.execute('''INSERT INTO videos_espacio(id,archivo,boot_id,inicio_ns,fin_ns)
-            VALUES(?,?,?,?,?)''',(identificador,final.name,boot,sensores[0],fin))
+        db.execute('''INSERT INTO videos_espacio(id,archivo,boot_id,inicio_ns,fin_ns,protegido)
+            VALUES(?,?,?,?,?,?)''',(identificador,final.name,boot,sensores[0],fin,int(protegido)))
         db.executemany('INSERT INTO video_muestras VALUES(?,?)',[(identificador,m[0]) for m in muestras if m[0]])
     bruto.unlink()
     print(f'Cerrado {final.name}: {len(sensores)} frames, {len(muestras)} muestras, '+
           f'{sum(json.loads(m[3]).get("gps_valido") is True for m in muestras)} GPS validas',flush=True)
 
 
-def ejecutar(db,carpeta,duracion,segmento,limite):
+def ejecutar(db,carpeta,duracion,segmento,limite,conservar=False):
+    def cuota(db, carpeta, limite, reserva=0):
+        if conservar:
+            if ocupacion(carpeta)+reserva>limite:
+                raise RuntimeError('Limite del recorrido alcanzado; se conserva TODO, sin rotar')
+        else:
+            ajustar_cuota(db,carpeta,limite,reserva)
     boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip()
     cols={c[1] for c in db.execute('PRAGMA table_info(muestras)')}
     if not {'boottime_ns','boot_id','muestra_id'}<=cols:
@@ -182,7 +190,7 @@ def ejecutar(db,carpeta,duracion,segmento,limite):
     esquema(db)
     # Reserva conservadora: dos brutos y una conversion, mas metadata.
     reserva=int(3*segmento*2_000_000/8*1.5)+2*1024**2
-    ajustar_cuota(db,carpeta,limite,reserva)
+    cuota(db,carpeta,limite,reserva)
     sesion=carpeta/('sesion_'+str(uuid.uuid4()))
     sesion.mkdir()
     q_sensor=queue.Queue(maxsize=10000)
@@ -208,13 +216,18 @@ def ejecutar(db,carpeta,duracion,segmento,limite):
     sensores=[]; pts=[]; vistos=set(); hechos=set(); conteos={}
     base_sensor=None; base_pts=None; previo=None
     inicio=time.monotonic(); sin_progreso=inicio; ultima_limpieza=inicio
+    cierre_solicitado=False
     try:
         while True:
+            if parar_grabacion.is_set() and not cierre_solicitado and proceso.poll() is None:
+                proceso.send_signal(signal.SIGINT)
+                cierre_solicitado=True
             terminado=proceso.poll() is not None
             if terminado:
                 for hilo in hilos: hilo.join(timeout=5)
                 if any(h.is_alive() for h in hilos): raise RuntimeError('Lectores no terminaron')
-                if proceso.returncode: raise RuntimeError(f'rpicam fallo: {proceso.returncode}')
+                if proceso.returncode and not (cierre_solicitado and proceso.returncode in (-2,130)):
+                    raise RuntimeError(f'rpicam fallo: {proceso.returncode}')
             if not errores.empty(): raise RuntimeError('Tiempos: '+errores.get())
             drenar(q_sensor,sensores); drenar(q_pts,pts)
             if len(sensores)>10000 or len(pts)>10000:
@@ -241,12 +254,12 @@ def ejecutar(db,carpeta,duracion,segmento,limite):
                 validar_tiempos(sensores[:n],pts[:n],base_sensor,base_pts,previo)
                 fin=sensores[n] if len(sensores)>n else sensores[n-1]+1
                 # Espacio para MP4 mientras aun existe el bruto y crece el activo.
-                ajustar_cuota(db,carpeta,limite,int(bruto.stat().st_size*1.5)+2*1024**2)
-                guardar_clip(db,carpeta,bruto,sensores[:n],pts[:n],fin,boot)
+                cuota(db,carpeta,limite,int(bruto.stat().st_size*1.5)+2*1024**2)
+                guardar_clip(db,carpeta,bruto,sensores[:n],pts[:n],fin,boot,protegido=conservar)
                 previo=sensores[n-1]
                 del sensores[:n]; del pts[:n]
                 hechos.add(bruto); sin_progreso=time.monotonic()
-                ajustar_cuota(db,carpeta,limite,reserva if not terminado else 0)
+                cuota(db,carpeta,limite,reserva if not terminado else 0)
                 print(f'Ocupacion administrada: {ocupacion(carpeta)/1024**2:.1f} MiB / {limite/1024**2:.1f} MiB',flush=True)
             if terminado:
                 if sensores or pts: raise ValueError('Metadata/PTS sobrantes; revisar correspondencia')
@@ -254,13 +267,13 @@ def ejecutar(db,carpeta,duracion,segmento,limite):
             if time.monotonic()-sin_progreso>max(60,segmento*3):
                 raise RuntimeError('Sin segmentos verificables; se conservan parciales')
             # Cuota blanda: se comprueba periodicamente, reserva permite fluctuacion.
-            ajustar_cuota(db,carpeta,limite)
+            cuota(db,carpeta,limite)
             if shutil.disk_usage(carpeta).free<256*1024**2:
                 raise RuntimeError('Reserva del sistema agotada')
-            if time.monotonic()-ultima_limpieza>60:
+            if not conservar and time.monotonic()-ultima_limpieza>60:
                 limpiar(db,aplicar=True); ultima_limpieza=time.monotonic()
             time.sleep(0.2)
-        limpiar(db,aplicar=True)
+        if not conservar: limpiar(db,aplicar=True)
         if sesion.exists() and not any(sesion.iterdir()): sesion.rmdir()
         print('Grabacion terminada. Sensores siguen activos hasta detener su servicio.',flush=True)
     finally:
@@ -282,22 +295,26 @@ def ejecutar(db,carpeta,duracion,segmento,limite):
 
 
 def main():
+    for sig in (signal.SIGTERM,signal.SIGINT):
+        signal.signal(sig,lambda *_:parar_grabacion.set())
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--duracion',type=int,default=180,help='Segundos; 0 hasta Ctrl+C')
     p.add_argument('--segmento',type=int,default=10)
     p.add_argument('--limite-mib',type=int,default=30)
+    p.add_argument('--conservar',action='store_true',help='Sin borrado ni retencion; protege todos los clips')
+    p.add_argument('--carpeta',type=Path,help='Carpeta exclusiva del recorrido')
     a=p.parse_args()
     if fcntl is None: p.error('La grabacion requiere Linux/Raspberry')
     if a.duracion<0 or not 5<=a.segmento<=300 or a.limite_mib<20:
         p.error('Duracion >=0, segmento 5..300 s, limite >=20 MiB')
-    carpeta=Path.home()/'dashguard/videos/loop_espacio'
+    carpeta=a.carpeta or Path.home()/'dashguard/videos/loop_espacio'
     carpeta.mkdir(parents=True,exist_ok=True)
     with (carpeta/'.grabacion.lock').open('w') as bloqueo:
         try: fcntl.flock(bloqueo,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError: raise RuntimeError('Ya hay una grabacion de este programa')
         ruta=Path.home()/'dashguard/datos/dashguard.sqlite3'
         with closing(sqlite3.connect(f'{ruta.as_uri()}?mode=rw',uri=True,timeout=10)) as db:
-            ejecutar(db,carpeta,a.duracion,a.segmento,a.limite_mib*1024**2)
+            ejecutar(db,carpeta,a.duracion,a.segmento,a.limite_mib*1024**2,a.conservar)
 
 
 if __name__=='__main__':

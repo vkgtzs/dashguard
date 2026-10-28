@@ -1,0 +1,15 @@
+[Unit]
+Description=Sincronizacion privada DashGuard: registros y video
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u %h/dashguard/app/dashcam_sync.py
+WorkingDirectory=%h/dashguard/app
+KillSignal=SIGTERM
+TimeoutStopSec=150
+UMask=0077
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target

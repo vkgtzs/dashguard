@@ -59,3 +59,32 @@ Falta comprobar la migracion y el flujo HTTP contra Supabase real; no afirman
 validar concurrencia ni ejecucion de triggers de PostgreSQL. La API conserva
 el acceso sin autenticacion del prototipo; falta autenticar dispositivos para
 uso fuera de pruebas controladas.
+# Entrega dashcam offline (28 de octubre de 2026)
+
+El backend requiere Node 24 y cinco variables: SUPABASE_URL, SUPABASE_KEY
+(servidor, con acceso service_role), DASHCAM_DEVICE_ID, DASHCAM_DEVICE_TOKEN y
+DASHCAM_OWNER_TOKEN. Tokens diferentes, aleatorios y de al menos 32 caracteres.
+Sin configuracion valida no inicia. No colocar claves en frontend ni Git.
+
+Aplicar `base-de-datos/003_dashcam_offline.sql` del repositorio consolidado. Agrega
+tabla con RLS y bucket privado sin alterar tablas anteriores.
+
+`GET /` solo expone salud/version. Todas las demas rutas requieren Bearer:
+propietario para GET; dispositivo para POST/PUT. Endpoints nuevos:
+POST /dashcam/registros, PUT /dashcam/videos/:recorrido/:video,
+GET /dashcam/recorridos, GET /dashcam/recorridos/:id?offset=0,
+GET /dashcam/videos/:id (URL privada temporal de 300 s).
+La subida admite hasta 8 MiB por segmento; verifica SHA256 y nunca sobrescribe
+un objeto distinto con el mismo ID. Una subida interrumpida se reintenta completa.
+La cola solo confirma tras validar UUID, dispositivo, checksum y bytes.
+
+El frontend local se abre en `/dashcam.html` y no guarda la clave. La pagina
+historica queda como prototipo; ahora necesita autenticar sus llamadas antiguas.
+Para comprobar API y Supabase juntos: `node verificar-api.cjs --local`.
+Para comprobar despliegue: `node verificar-api.cjs https://dashguard-backend.onrender.com`.
+Estas pruebas conservan un recorrido marcado como sintetico, sin datos de hardware.
+
+Render sigue conectado al repositorio historico `vkgtzs/dashguard-backend`.
+La fuente de desarrollo es `vkgtzs/dashguard/backend`; publicar una copia de los
+archivos del backend, conservando historial y excluyendo todos los .env reales.
+

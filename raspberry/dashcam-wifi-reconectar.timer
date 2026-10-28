@@ -1,0 +1,10 @@
+[Unit]
+Description=Reconectar Wi-Fi a los 33 minutos del proximo arranque
+
+[Timer]
+OnBootSec=33min
+AccuracySec=1s
+Unit=dashcam-wifi-reconectar.service
+
+[Install]
+WantedBy=timers.target

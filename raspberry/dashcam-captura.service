@@ -1,0 +1,15 @@
+[Unit]
+Description=DashGuard dashcam offline: recorrido de 30 minutos, sin borrado
+Conflicts=dashguard-captura.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u %h/dashguard/app/dashcam_captura.py --duracion 1800 --limite-mib 1024
+WorkingDirectory=%h/dashguard/app
+KillSignal=SIGTERM
+TimeoutStopSec=180
+UMask=0077
+Restart=no
+
+[Install]
+WantedBy=default.target

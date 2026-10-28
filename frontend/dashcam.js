@@ -14,20 +14,28 @@ $('conexion').onsubmit=async e=>{
   if(u.protocol!=='https:' && !['localhost','127.0.0.1'].includes(u.hostname))throw Error('Backend remoto requiere HTTPS');
   if(u.username||u.password||u.search||u.hash||!['','/'].includes(u.pathname))throw Error('Indica solo el origen del backend');
   backend=u.origin;clave=$('clave').value;$('clave').value='';
+  await listar();
+ }catch(e){avisar(e.message);}
+};
+async function listar(){
+ try{
+  if(!clave)throw Error('Conecta primero con la clave del propietario');
   avisar('Consultando nube…');const {registros}=await api('/dashcam/recorridos');
   const grupos=new Map();for(const r of registros){const t=grupos.get(r.recorrido_id)||{};t[r.tipo]=r;grupos.set(r.recorrido_id,t);}
   $('recorridos').replaceChildren();
   for(const [id,t] of grupos){
     const fecha=t.inicio?.contenido.reloj?.fecha_host_utc||'inicio todavía pendiente';
-    boton(`${fecha} · ${t.fin?.contenido.estado||'abierto o cierre pendiente'} · ${id.slice(0,8)}`,()=>detalle(id),$('recorridos'));
+    boton(`${t.inicio?.contenido.prueba_sintetica?'Prueba sintética · ':''}${fecha} · ${t.fin?.contenido.estado||'abierto o cierre pendiente'} · ${id.slice(0,8)}`,()=>detalle(id),$('recorridos'));
   }
   avisar(`${grupos.size} recorridos recibidos. La hora mostrada procede del reloj del equipo; consulta su estado NTP.`);
  }catch(e){avisar(e.message);}
-};
+}
+$('recargar').onclick=listar;
 async function detalle(id){
  try{
   seleccion=id;avisar('Descargando metadatos del recorrido…');let registros=[],offset=0;
   do{const r=await api(`/dashcam/recorridos/${id}?offset=${offset}`);registros.push(...r.registros);offset=r.siguiente;}while(offset!==null);
+  registros=[...new Map(registros.map(r=>[r.id,r])).values()];
   const inicio=registros.find(r=>r.tipo==='inicio')?.contenido;
   const fin=registros.find(r=>r.tipo==='fin')?.contenido;
   const muestras=registros.filter(r=>r.tipo==='muestra').sort((a,b)=>a.contenido.boottime_ns-b.contenido.boottime_ns);

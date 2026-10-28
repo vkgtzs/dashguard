@@ -281,7 +281,7 @@ app.get('/recorridos', async (req, res) => {
     } catch (error) { console.error(error); return res.status(500).json({error:'No se pudieron consultar recorridos'}); }
 });
 
-app.listen(PORT, () => {
+if (require.main === module) app.listen(PORT, () => {
     console.log("-----------------------------------");
     console.log("DashGuard Backend");
     console.log(`Servidor ejecutandose en puerto ${PORT}`);
@@ -289,3 +289,4 @@ app.listen(PORT, () => {
     console.log("Base de datos: Supabase PostgreSQL");
     console.log("-----------------------------------");
 });
+module.exports = app;

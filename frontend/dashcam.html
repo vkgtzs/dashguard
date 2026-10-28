@@ -7,7 +7,7 @@
 <label>Clave de consulta del propietario<input id="clave" type="password" required autocomplete="off" minlength="32"></label>
 <button>Conectar y consultar</button><button id="desconectar" type="button">Cerrar consulta</button></form>
 <p id="estado" role="status">Introduce la clave de consulta. No se guarda en el navegador.</p>
-<section><h2>Recorridos recibidos</h2><p>Sin conexión, los datos nuevos permanecen en la Raspberry hasta sincronizarse. Una lista parcial no confirma que todo el recorrido haya subido.</p>
+<section><h2>Recorridos recibidos</h2><button id="recargar" type="button">Actualizar lista</button><p>Sin conexión, los datos nuevos permanecen en la Raspberry hasta sincronizarse. Una lista parcial no confirma que todo el recorrido haya subido.</p>
 <div id="recorridos"></div></section>
 <section id="detalle" hidden><h2 id="titulo"></h2><p id="resumen"></p><button id="actualizar">Actualizar recorrido</button>
 <h3>Videos confirmados</h3><div id="videos"></div><video id="reproductor" controls preload="metadata"></video>

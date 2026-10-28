@@ -1,0 +1,9 @@
+[Unit]
+Description=Restaurar Wi-Fi tras ensayo offline DashGuard (una sola vez)
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nmcli radio wifi on
+ExecStartPost=/usr/bin/systemctl disable dashcam-wifi-reconectar.timer

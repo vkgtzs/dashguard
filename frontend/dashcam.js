@@ -1,5 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
+const mapaRecorrido=DashcamMapa.crear({contenedor:$('mapa'),resumen:$('mapa-resumen'),centrar:$('mapa-centrar'),calles:$('mapa-calles'),estadoCalles:$('mapa-calles-estado')});
 let clave='',backend='',seleccion=null,blobURL=null,carga=null;
 function liberarVideo(){carga?.abort();carga=null;if(blobURL){URL.revokeObjectURL(blobURL);blobURL=null;}$('descargar').hidden=true;$('reproductor').removeAttribute('src');$('reproductor').load();}
 const sha=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),v=>v.toString(16).padStart(2,'0')).join('');
@@ -43,9 +44,10 @@ async function listar(){
 $('recargar').onclick=listar;
 async function detalle(id){
  try{
-  seleccion=id;avisar('Descargando metadatos del recorrido…');let registros=[],offset=0;
+  seleccion=id;mapaRecorrido.limpiar();liberarVideo();$('detalle').hidden=true;avisar('Descargando metadatos del recorrido…');let registros=[],offset=0;
   do{const r=await api(`/dashcam/recorridos/${id}?offset=${offset}`);registros.push(...r.registros);offset=r.siguiente;}while(offset!==null);
   registros=[...new Map(registros.map(r=>[r.id,r])).values()];
+  if(seleccion!==id)return;
   const inicio=registros.find(r=>r.tipo==='inicio')?.contenido;
   const fin=registros.find(r=>r.tipo==='fin')?.contenido;
   const muestras=registros.filter(r=>r.tipo==='muestra').sort((a,b)=>a.contenido.boottime_ns-b.contenido.boottime_ns);
@@ -53,6 +55,7 @@ async function detalle(id){
   const originales=registros.filter(r=>r.tipo==='video'&&!r.contenido.presentacion);
   const videos=(coleccion?coleccion.contenido.bloques.map(id=>registros.find(r=>r.id===id)).filter(Boolean):originales).sort((a,b)=>a.contenido.metadata.inicio_ns-b.contenido.metadata.inicio_ns);
   $('detalle').hidden=false;$('titulo').textContent='Recorrido '+id;
+  mapaRecorrido.mostrar(muestras,inicio?.inicio_boottime_ns);
   const duracion=fin&&inicio?(fin.fin_boottime_ns-inicio.inicio_boottime_ns)/1e9:null;
   const segundosVideo=videos.reduce((total,v)=>total+v.contenido.metadata.sensor_timestamps_ns.length,0)/15;
   $('resumen').textContent=`Estado: ${fin?.estado||'abierto o cierre aún pendiente'}. Duración de la sesión: ${duracion===null?'pendiente':duracion.toFixed(1)+' s'}. Video recibido: ${segundosVideo.toFixed(1)} s nominales. ${videos.length} videos y ${muestras.length} muestras recibidas. Reloj NTP al inicio: ${inicio?.reloj?.ntp_sincronizado?'sincronizado':'no verificado'}. ${fin?.parciales?.length?'Existen segmentos parciales por recuperar.':''}`;
@@ -74,4 +77,4 @@ async function detalle(id){
  }catch(e){avisar(e.message);}
 }
 $('actualizar').onclick=()=>seleccion&&detalle(seleccion);
-$('desconectar').onclick=()=>{clave='';seleccion=null;liberarVideo();$('reproductor').removeAttribute('src');$('reproductor').load();$('recorridos').replaceChildren();$('muestras').replaceChildren();$('videos').replaceChildren();$('detalle').hidden=true;avisar('Consulta cerrada. Clave eliminada de la memoria de esta página.');};
+$('desconectar').onclick=()=>{clave='';seleccion=null;mapaRecorrido.limpiar();liberarVideo();$('reproductor').removeAttribute('src');$('reproductor').load();$('recorridos').replaceChildren();$('muestras').replaceChildren();$('videos').replaceChildren();$('detalle').hidden=true;avisar('Consulta cerrada. Clave eliminada de la memoria de esta página.');};

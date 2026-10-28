@@ -188,3 +188,18 @@ El modo de ensayo sigue siendo de 1800 segundos. Durante la instalacion se manti
 la captura detenida y deshabilitada; no reactivar el arranque sin comunicarlo.
 Con cortes en fotogramas clave pueden variar las duraciones y existir un ultimo
 archivo corto. No prometer exactamente seis archivos bajo cualquier interrupcion.
+
+## Mapa de cada recorrido
+
+El visor local muestra todos los puntos con GPS valido y coordenadas numericas
+geograficamente posibles, con inicio/fin GPS y ventanas con tiempo y velocidad.
+No reduce el numero de puntos ni inventa posiciones para muestras sin GPS.
+Los puntos repetidos representan muestras del ultimo fix reciente; no prueban
+movimiento fisico. No se une una interrupcion de GPS ni un hueco mayor de 10 s.
+Leaflet 1.9.4 se sirve localmente desde frontend/vendor, con su licencia.
+Las calles de OpenStreetMap se activan explicitamente con un boton: requieren
+Internet y solicitan al proveedor la zona visible. Sin calles se mantienen puntos,
+trazado, escala y controles sobre los datos ya consultados. No hay mapas offline
+precargados ni se permite descarga masiva de teselas. Ver politica oficial:
+https://operations.osmfoundation.org/policies/tiles/ .
+Pruebas de filtrado y cortes: node --test frontend/dashcam-mapa.test.cjs .

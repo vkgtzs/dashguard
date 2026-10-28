@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DashGuard · Recorridos en nube</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="dashcam.css">
 <main><h1>DashGuard · Dashcam</h1><p>Consulta local de recorridos sincronizados con la nube.</p>
 <form id="conexion"><label>Backend HTTPS<input id="backend" type="url" required value="https://dashguard-backend.onrender.com"></label>
@@ -10,6 +11,11 @@
 <section><h2>Recorridos recibidos</h2><button id="recargar" type="button">Actualizar lista</button><p>Sin conexión, los datos nuevos permanecen en la Raspberry hasta sincronizarse. Una lista parcial no confirma que todo el recorrido haya subido.</p>
 <div id="recorridos"></div></section>
 <section id="detalle" hidden><h2 id="titulo"></h2><p id="resumen"></p><button id="actualizar">Actualizar recorrido</button>
+<h3>Mapa del recorrido</h3><p id="mapa-resumen" role="status"></p>
+<div id="mapa" role="region" aria-label="Mapa de posiciones GPS del recorrido" hidden></div>
+<div><button id="mapa-centrar" disabled>Encuadrar recorrido</button><button id="mapa-calles" disabled>Mostrar calles de OpenStreetMap</button></div>
+<p id="mapa-calles-estado">Calles apagadas. Los puntos se dibujan localmente.</p>
+<p class="nota-mapa">Al activar las calles, OpenStreetMap recibe solicitudes de la zona visible del mapa. No recibe la clave de consulta. No se descargan mapas para uso offline.</p>
 <h3>Videos confirmados</h3><div id="videos"></div><video id="reproductor" controls preload="metadata"></video><p><a id="descargar" hidden>Descargar MP4</a></p>
 <h3>Mediciones</h3><p id="sensores"></p><div id="paginas"></div><div class="tabla"><table><thead><tr><th>Tiempo desde inicio (s)</th><th>GPS</th><th>Velocidad km/h</th><th>IMU</th><th>Aceleración m/s²</th></tr></thead><tbody id="muestras"></tbody></table></div>
-</section></main><script src="dashcam.js"></script></html>
+</section></main><script src="vendor/leaflet/leaflet.js"></script><script src="dashcam-mapa.js"></script><script src="dashcam.js"></script></html>

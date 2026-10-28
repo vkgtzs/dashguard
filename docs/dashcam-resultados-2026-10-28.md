@@ -136,3 +136,27 @@ sustituye un recorrido nuevo de 30 minutos ni una prueba en automovil.
 regresiones de transacciones, cortes de red y partes. La Raspberry habia pasado
 14 pruebas antes de iniciar esta ultima captura. Las pruebas que fallaron se
 conservan con sus estados reales; no se reescribieron como completas.
+
+## Recorrido en automovil y recuperacion tras stop
+
+Recorrido b8a72cd4-dc93-453a-b15b-db958828edfa, informado por el usuario:
+primer MP4 301 s confirmado, GPS 538/546 e IMU 546/546 validas. Cierre
+incompleto tras stop, con segundo H264 conservado. Unidad instalada usaba
+KillMode=control-group: stop enviaba SIGTERM simultaneamente a supervisor y
+procesos de camara/sensores, interrumpiendo la coordinacion de cierre.
+Se cambio a KillMode=mixed, se respaldo la unidad anterior y se recargo systemd.
+No se altero la configuracion de arranque elegida por el usuario.
+Prueba real de stop con unidad temporal de igual KillMode: recorrido
+de62ac12-c20b-407f-9f1a-bf5f76019f8a termino detenido, sin error ni parciales;
+MP4 42.733 s, 641 frames, 50 muestras, 49 GPS validas e IMU 50/50.
+
+Recuperacion aditiva del segundo video original: e26be76f-4fbb-55d1-a273-d0056789a2c3,
+3605 frames, 240.333 s nominales; 3604 frames con tiempos alineados. El ultimo
+fotograma no tiene SensorTimestamp recuperable: no se invento. MP4 sin recodificar,
+H264 y tiempos originales conservados, metadata explicita, proteccion local y
+entrada nueva de sincronizacion. El cierre historico incompleto no se reescribe.
+
+El MP4 recuperado se subio en 10 partes; GET privado de Render devolvio HTTP 200,
+60 098 785 bytes y manifiesto de las 10 partes. Recuperar otra vez devolvio
+ya_recuperado=true: no duplico ni sobrescribio. La UI distingue el recuperado y
+muestra la advertencia temporal. Las 30 regresiones Python siguieron pasando.

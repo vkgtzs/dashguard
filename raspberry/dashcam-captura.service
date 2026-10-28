@@ -7,6 +7,7 @@ Type=simple
 ExecStart=/usr/bin/python3 -u %h/dashguard/app/dashcam_captura.py --duracion 1800 --limite-mib 1024
 WorkingDirectory=%h/dashguard/app
 KillSignal=SIGTERM
+KillMode=mixed
 TimeoutStopSec=180
 UMask=0077
 Restart=no

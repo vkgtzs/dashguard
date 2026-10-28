@@ -19,7 +19,7 @@ def verificar(db,recorrido=None):
     inicio=json.loads(grupos['inicio'][0]['contenido_json']) if grupos['inicio'] else {}
     fin=json.loads(grupos['fin'][0]['contenido_json']) if grupos['fin'] else {}
     muestras=[json.loads(f['contenido_json']) for f in grupos['muestra']]
-    errores=[];marcas=[];frames=0;pesos=0
+    errores=[];marcas=[];frames=0;pesos=0;frames_video=0;advertencias=[]
     videos=db.execute('SELECT * FROM dashcam_archivos WHERE recorrido_id=?',(trip['id'],)).fetchall()
     orden=[]
     for video in videos:
@@ -32,6 +32,9 @@ def verificar(db,recorrido=None):
         pesos+=ruta.stat().st_size
         meta=json.loads(ruta.with_suffix('.json').read_text(encoding='utf-8'))
         s=meta['sensor_timestamps_ns'];p=meta['pts_originales_ms']
+        frames_video+=meta.get('frames_video',len(s))
+        if meta.get('asociacion_incompleta'):
+            advertencias.append(dict(video_id=video['id'],frames_sin_tiempos=meta['frames_video']-len(s)))
         if len(s)!=len(p) or not s:errores.append('Conteos de tiempos: '+video['id'])
         if meta['boot_id']!=trip['boot_id']:errores.append('boot_id distinto: '+video['id'])
         orden.append((s,meta['fin_exclusivo_ns']))
@@ -49,8 +52,8 @@ def verificar(db,recorrido=None):
        duracion_supervisor_s=(trip['fin_ns']-trip['inicio_ns'])/1e9 if trip['fin_ns'] else None,
        ntp_inicio=inicio.get('reloj',{}).get('ntp_sincronizado'),ntp_cierre=fin.get('reloj',{}).get('ntp_sincronizado'),
        videos=len(videos),videos_confirmados=sum(bool(v['confirmado']) for v in videos),
-       video_mib=pesos/1024**2,frames_catalogados=frames,
-       duracion_video_nominal_s=frames/15,
+       video_mib=pesos/1024**2,frames_catalogados=frames_video,frames_con_tiempos=frames,advertencias_recuperacion=advertencias,
+       duracion_video_nominal_s=frames_video/15,
        duracion_sensor_aproximada_s=(marcas[-1]-marcas[0])/1e9+media/1000 if deltas else None,
        fps_sensor=1000/media if media else None,
        intervalo_maximo_ms=max(deltas) if deltas else None,

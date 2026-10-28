@@ -57,11 +57,13 @@ async function detalle(id){
   $('detalle').hidden=false;$('titulo').textContent='Recorrido '+id;
   mapaRecorrido.mostrar(muestras,inicio?.inicio_boottime_ns);
   const duracion=fin&&inicio?(fin.fin_boottime_ns-inicio.inicio_boottime_ns)/1e9:null;
-  const segundosVideo=videos.reduce((total,v)=>total+v.contenido.metadata.sensor_timestamps_ns.length,0)/15;
-  $('resumen').textContent=`Estado: ${fin?.estado||'abierto o cierre aún pendiente'}. Duración de la sesión: ${duracion===null?'pendiente':duracion.toFixed(1)+' s'}. Video recibido: ${segundosVideo.toFixed(1)} s nominales. ${videos.length} videos y ${muestras.length} muestras recibidas. Reloj NTP al inicio: ${inicio?.reloj?.ntp_sincronizado?'sincronizado':'no verificado'}. ${fin?.parciales?.length?'Existen segmentos parciales por recuperar.':''}`;
+  const segundosVideo=videos.reduce((total,v)=>total+(v.contenido.metadata.frames_video??v.contenido.metadata.sensor_timestamps_ns.length),0)/15;
+  $('resumen').textContent=`Estado: ${fin?.estado||'abierto o cierre aún pendiente'}. Duración de la sesión: ${duracion===null?'pendiente':duracion.toFixed(1)+' s'}. Video recibido: ${segundosVideo.toFixed(1)} s nominales. ${videos.length} videos y ${muestras.length} muestras recibidas. Reloj NTP al inicio: ${inicio?.reloj?.ntp_sincronizado?'sincronizado':'no verificado'}. ${fin?.parciales?.length?'El cierre original dej� archivos parciales.':''}`;
+  const recuperados=videos.filter(v=>v.contenido.recuperado);
+  if(recuperados.length)$('resumen').textContent+=' Hay video recuperado; se conserva el cierre hist�rico. '+recuperados.map(v=>v.contenido.metadata.advertencia).join(' ');
   $('videos').replaceChildren();
-  videos.forEach((v,i)=>boton(`${coleccion||v.contenido.segundos_solicitados===300?'Bloque':'Segmento'} ${i+1} · ${(v.contenido.metadata.sensor_timestamps_ns.length/15/60).toFixed(2)} min · ${(v.contenido.bytes/1048576).toFixed(2)} MiB`,()=>reproducir(v),$('videos')));
-  if(!coleccion&&fin&&segundosVideo>=300)boton('Preparar seis bloques de 5 minutos',async()=>{try{const r=await fetch(backend+`/dashcam/recorridos/${id}/exportar`,{method:'POST',headers:{Authorization:'Bearer '+clave}});if(!r.ok)throw Error('No se pudo iniciar la preparación');avisar('Preparando bloques en la nube. Actualiza el recorrido en unos minutos.');}catch(e){avisar(e.message);}},$('videos'));
+  videos.forEach((v,i)=>boton(`${v.contenido.recuperado?'Recuperado':coleccion||v.contenido.segundos_solicitados===300?'Bloque':'Segmento'} ${i+1} · ${((v.contenido.metadata.frames_video??v.contenido.metadata.sensor_timestamps_ns.length)/15/60).toFixed(2)} min · ${(v.contenido.bytes/1048576).toFixed(2)} MiB`,()=>reproducir(v),$('videos')));
+  if(!coleccion&&fin&&fin.presentacion_origen!=='raspberry'&&segundosVideo>=300)boton('Preparar seis bloques de 5 minutos',async()=>{try{const r=await fetch(backend+`/dashcam/recorridos/${id}/exportar`,{method:'POST',headers:{Authorization:'Bearer '+clave}});if(!r.ok)throw Error('No se pudo iniciar la preparación');avisar('Preparando bloques en la nube. Actualiza el recorrido en unos minutos.');}catch(e){avisar(e.message);}},$('videos'));
   $('sensores').textContent=`GPS válido: ${muestras.filter(m=>m.contenido.datos.gps_valido).length}/${muestras.length}. IMU válida: ${muestras.filter(m=>m.contenido.datos.imu_valida===true).length}/${muestras.length}. Aceleración incluye gravedad.`;
   function pagina(indice){$('muestras').replaceChildren();$('paginas').replaceChildren();
   if(indice>0)boton('Anteriores',()=>pagina(indice-1),$('paginas'));

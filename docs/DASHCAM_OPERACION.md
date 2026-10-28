@@ -203,3 +203,19 @@ trazado, escala y controles sobre los datos ya consultados. No hay mapas offline
 precargados ni se permite descarga masiva de teselas. Ver politica oficial:
 https://operations.osmfoundation.org/policies/tiles/ .
 Pruebas de filtrado y cortes: node --test frontend/dashcam-mapa.test.cjs .
+
+## Detencion manual y recuperacion
+
+La unidad de captura debe usar KillMode=mixed: stop entrega SIGTERM al
+supervisor, que coordina SIGINT de rpicam, conversion del ultimo clip y cierre
+de sensores. No usar el valor por defecto control-group, pues termina a los
+hijos a la vez. Referencia: https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html .
+Se valido stop con hardware mediante unidad temporal de iguales propiedades.
+La captura queda detenida al terminar; no se cambia enable/disable del usuario.
+
+recuperar_parcial.py realiza recuperacion aditiva de un unico H264 cerrado:
+no borra ni sobrescribe bruto o tiempos, verifica paquetes antes/despues de MP4,
+usa UUID determinista, protege el clip y agrega su entrada de sincronizacion.
+Si falta el timestamp de un fotograma, conserva el video completo y distingue
+frames_video de frames_con_tiempos. Desajustes mayores se rechazan. El estado
+original incompleto y el registro fin ya sincronizado no se reescriben.

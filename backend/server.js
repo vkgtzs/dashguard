@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
 const { extras, guardar } = require("./sincronizacion");
+const { autenticar, montar } = require('./dashcam');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,8 +27,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // MIDDLEWARE
 // ================================
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({origin(origin,callback) {
+    if (!origin) return callback(null,true);
+    try { const u=new URL(origin); return callback(null,['localhost','127.0.0.1'].includes(u.hostname)); }
+    catch { return callback(null,false); }
+}}));
+app.use(express.json({limit:'2mb'}));
 
 // ================================
 // RUTA DE PRUEBA
@@ -35,9 +40,11 @@ app.use(express.json());
 
 app.get("/", (req, res) => {
     res.json({
-        mensaje: "Backend de DashGuard funcionando"
+        mensaje: "Backend de DashGuard funcionando", version: 'dashcam-offline-v1'
     });
 });
+app.use(autenticar(process.env));
+montar(app,supabase);
 
 // ================================
 // POST /mediciones

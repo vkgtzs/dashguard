@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DashGuard · Recorridos en nube</title>
+<link rel="stylesheet" href="dashcam.css">
+<main><h1>DashGuard · Dashcam</h1><p>Consulta local de recorridos sincronizados con la nube.</p>
+<form id="conexion"><label>Backend HTTPS<input id="backend" type="url" required value="https://dashguard-backend.onrender.com"></label>
+<label>Clave de consulta del propietario<input id="clave" type="password" required autocomplete="off" minlength="32"></label>
+<button>Conectar y consultar</button><button id="desconectar" type="button">Cerrar consulta</button></form>
+<p id="estado" role="status">Introduce la clave de consulta. No se guarda en el navegador.</p>
+<section><h2>Recorridos recibidos</h2><p>Sin conexión, los datos nuevos permanecen en la Raspberry hasta sincronizarse. Una lista parcial no confirma que todo el recorrido haya subido.</p>
+<div id="recorridos"></div></section>
+<section id="detalle" hidden><h2 id="titulo"></h2><p id="resumen"></p><button id="actualizar">Actualizar recorrido</button>
+<h3>Videos confirmados</h3><div id="videos"></div><video id="reproductor" controls preload="metadata"></video>
+<h3>Mediciones</h3><p id="sensores"></p><div class="tabla"><table><thead><tr><th>Tiempo desde inicio (s)</th><th>GPS</th><th>Velocidad km/h</th><th>IMU</th><th>Aceleración m/s²</th></tr></thead><tbody id="muestras"></tbody></table></div>
+</section></main><script src="dashcam.js"></script></html>

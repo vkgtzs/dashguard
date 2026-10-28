@@ -42,4 +42,9 @@ test('API autentica roles, reintenta sin duplicar y rechaza conflictos',async t=
  const subir=b=>fetch(`${base}/dashcam/videos/${trip}/${v}`,{method:'PUT',headers:{Authorization:'Bearer '+env.DASHCAM_DEVICE_TOKEN,'Content-Type':'video/mp4','X-Content-Sha256':digest(b)},body:b});
  assert.equal((await subir(bytes)).status,200);assert.equal((await subir(bytes)).status,200);
  assert.equal(videos.size,1);assert.equal((await subir(Buffer.from('distinto'))).status,409);
+ const parte=b=>fetch(`${base}/dashcam/partes/${trip}/${v}/0`,{method:'PUT',headers:{Authorization:'Bearer '+env.DASHCAM_DEVICE_TOKEN,'Content-Type':'application/octet-stream','X-Content-Sha256':digest(b)},body:b});
+ assert.equal((await parte(bytes)).status,200);assert.equal((await parte(bytes)).status,200);
+ assert.equal((await parte(Buffer.from('otra parte'))).status,409);
+ assert.equal(videos.size,2);
+
 });

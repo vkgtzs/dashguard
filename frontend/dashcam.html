@@ -10,6 +10,6 @@
 <section><h2>Recorridos recibidos</h2><button id="recargar" type="button">Actualizar lista</button><p>Sin conexión, los datos nuevos permanecen en la Raspberry hasta sincronizarse. Una lista parcial no confirma que todo el recorrido haya subido.</p>
 <div id="recorridos"></div></section>
 <section id="detalle" hidden><h2 id="titulo"></h2><p id="resumen"></p><button id="actualizar">Actualizar recorrido</button>
-<h3>Videos confirmados</h3><div id="videos"></div><video id="reproductor" controls preload="metadata"></video>
-<h3>Mediciones</h3><p id="sensores"></p><div class="tabla"><table><thead><tr><th>Tiempo desde inicio (s)</th><th>GPS</th><th>Velocidad km/h</th><th>IMU</th><th>Aceleración m/s²</th></tr></thead><tbody id="muestras"></tbody></table></div>
+<h3>Videos confirmados</h3><div id="videos"></div><video id="reproductor" controls preload="metadata"></video><p><a id="descargar" hidden>Descargar MP4</a></p>
+<h3>Mediciones</h3><p id="sensores"></p><div id="paginas"></div><div class="tabla"><table><thead><tr><th>Tiempo desde inicio (s)</th><th>GPS</th><th>Velocidad km/h</th><th>IMU</th><th>Aceleración m/s²</th></tr></thead><tbody id="muestras"></tbody></table></div>
 </section></main><script src="dashcam.js"></script></html>

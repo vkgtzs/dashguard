@@ -26,6 +26,29 @@ class Offline(unittest.TestCase):
         self.trip=str(uuid.uuid4());self.id=str(uuid.uuid4())
         encolar(self.db,self.id,self.trip,'muestra',dict(imu_valida=False,gps_valido=False,valor=None));self.db.commit()
 
+    def test_video_grande_confirma_todas_partes_y_reintenta_sin_borrar(self):
+        from dashcam_estado import partes_archivo
+        ruta=Path(self.temp.name)/'grande.mp4';ruta.write_bytes(b'x'*(9*1024**2))
+        v=str(uuid.uuid4());sha=sha_archivo(ruta)
+        partes=partes_archivo(ruta,'unidad',self.trip,v)
+        self.db.execute('INSERT INTO dashcam_archivos VALUES(?,?,?,?,?,NULL)',(v,self.trip,str(ruta),sha,ruta.stat().st_size))
+        encolar(self.db,v,self.trip,'video',dict(partes=partes));self.db.commit()
+        llamadas=[]
+        def responder(req,**_):
+            if req.method=='PUT':
+                n=int(req.full_url.rsplit('/',1)[1]);llamadas.append(n)
+                return Respuesta(dict(bloque_id=v,numero=n,recorrido_id=self.trip,device_id='unidad',
+                    sha256=hashlib.sha256(req.data).hexdigest(),bytes=len(req.data)))
+            return Respuesta(dict(confirmados=[dict(id=r['id'],sha256=r['sha256'],device_id='unidad') for r in json.loads(req.data)['registros']]))
+        def cortar(req,**kw):
+            if req.full_url.endswith('/1'):raise URLError('corte simulado')
+            return responder(req,**kw)
+        with self.assertRaises(URLError):una_vez(self.db,self.config,cortar)
+        self.assertIsNone(self.db.execute('SELECT confirmado FROM dashcam_archivos').fetchone()[0])
+        una_vez(self.db,self.config,responder)
+        self.assertEqual(llamadas,[0,0,1]);self.assertTrue(ruta.exists())
+        self.assertIsNotNone(self.db.execute('SELECT confirmado FROM dashcam_archivos').fetchone()[0])
+
     def test_sin_red_conserva_contenido_uuid_y_reintento(self):
         original=dict(self.db.execute('SELECT * FROM dashcam_outbox').fetchone())
         def fallo(*a,**k):raise URLError('offline simulado')

@@ -18,6 +18,17 @@ def sha_archivo(ruta):
     return sha.hexdigest()
 
 
+PARTE_BYTES=6*1024**2
+def partes_archivo(ruta,device,recorrido,id):
+    partes=[]
+    with Path(ruta).open('rb') as f:
+        while bloque:=f.read(PARTE_BYTES):
+            n=len(partes)
+            partes.append(dict(ruta=f'{device}/{recorrido}/bloques-300-v1/{id}/parte_{n:03d}.bin',
+                               bytes=len(bloque),sha256=hashlib.sha256(bloque).hexdigest()))
+    return partes
+
+
 def abrir(ruta):
     db=sqlite3.connect(ruta,timeout=20)
     db.row_factory=sqlite3.Row
@@ -67,9 +78,14 @@ def recolectar(db,recorrido,fin_ns=None):
         if db.execute('SELECT 1 FROM dashcam_archivos WHERE id=?',(video['id'],)).fetchone():continue
         meta=json.loads(ruta.with_suffix('.json').read_text(encoding='utf-8'))
         sha=sha_archivo(ruta)
+        contenido=dict(metadata=meta,sha256=sha,bytes=ruta.stat().st_size)
+        if ruta.stat().st_size>8*1024**2:
+            config=json.loads((Path.home()/'dashguard/config/dashcam.json').read_text(encoding='utf-8-sig'))
+            contenido.update(partes=partes_archivo(ruta,config['device_id'],recorrido,video['id']),
+                             numero=1+db.execute('SELECT count(*) FROM dashcam_archivos WHERE recorrido_id=?',(recorrido,)).fetchone()[0],segundos_solicitados=300)
+        encolar(db,video['id'],recorrido,'video',contenido)
         db.execute('INSERT INTO dashcam_archivos(id,recorrido_id,ruta,sha256,bytes) VALUES(?,?,?,?,?)',
                    (video['id'],recorrido,str(ruta),sha,ruta.stat().st_size))
-        encolar(db,video['id'],recorrido,'video',dict(metadata=meta,sha256=sha,bytes=ruta.stat().st_size))
     return len(muestras)
 
 

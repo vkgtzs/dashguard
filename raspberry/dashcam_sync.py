@@ -6,7 +6,8 @@ import signal
 import time
 from urllib.parse import urlsplit
 from urllib.request import Request,urlopen
-from dashcam_estado import abrir,sha_archivo
+from dashcam_estado import abrir,sha_archivo,PARTE_BYTES
+import hashlib
 
 PARAR=False
 def detener(*_):
@@ -38,9 +39,26 @@ def una_vez(db,config,enviar=urlopen):
         ruta=Path(fila['ruta'])
         if not ruta.is_file() or ruta.stat().st_size!=fila['bytes'] or sha_archivo(ruta)!=fila['sha256']:
             raise ValueError('Video local ausente o modificado: '+fila['id'])
-        if fila['bytes']>8*1024**2:raise ValueError('Segmento supera limite de subida; conservar y revisar')
-        r=peticion(config,f"/dashcam/videos/{fila['recorrido_id']}/{fila['id']}",ruta.read_bytes(),
-            method='PUT',tipo='video/mp4',sha=fila['sha256'],enviar=enviar)
+        if fila['bytes']>8*1024**2:
+            registro=db.execute('SELECT contenido_json FROM dashcam_outbox WHERE id=?',(fila['id'],)).fetchone()
+            partes=json.loads(registro['contenido_json']).get('partes',[]) if registro else []
+            if not partes:raise ValueError('Video grande sin manifiesto de partes; conservar')
+            with ruta.open('rb') as f:
+                for n,p in enumerate(partes):
+                    bloque=f.read(PARTE_BYTES)
+                    if len(bloque)!=p['bytes'] or hashlib.sha256(bloque).hexdigest()!=p['sha256']:
+                        raise ValueError('Parte local no coincide con manifiesto')
+                    ack=peticion(config,f"/dashcam/partes/{fila['recorrido_id']}/{fila['id']}/{n}",bloque,
+                        method='PUT',tipo='application/octet-stream',sha=p['sha256'],enviar=enviar)
+                    if any(ack.get(k)!=v for k,v in dict(bloque_id=fila['id'],numero=n,
+                        recorrido_id=fila['recorrido_id'],device_id=config['device_id'],sha256=p['sha256'],bytes=p['bytes']).items()):
+                        raise ValueError('Parte no confirmada; video permanece pendiente')
+                if f.read(1):raise ValueError('Manifiesto incompleto')
+            r=dict(video_id=fila['id'],recorrido_id=fila['recorrido_id'],sha256=fila['sha256'],
+                   device_id=config['device_id'],bytes=fila['bytes'])
+        else:
+            r=peticion(config,f"/dashcam/videos/{fila['recorrido_id']}/{fila['id']}",ruta.read_bytes(),
+                method='PUT',tipo='video/mp4',sha=fila['sha256'],enviar=enviar)
         if (r.get('video_id')!=fila['id'] or r.get('recorrido_id')!=fila['recorrido_id'] or
             r.get('sha256')!=fila['sha256'] or r.get('device_id')!=config['device_id'] or r.get('bytes')!=fila['bytes']):
             raise ValueError('Servidor no confirmo video, checksum, tamano y dispositivo')

@@ -22,6 +22,8 @@ for(const [k,v] of Object.entries(nuevos)) {
 const exportar=path.join(__dirname,'.env.render');
 const texto=Object.entries({SUPABASE_URL:env.SUPABASE_URL,SUPABASE_KEY:env.SUPABASE_KEY,...nuevos}).map(([k,v])=>`${k}=${v}`).join('\n')+'\n';
 if(!fs.existsSync(exportar))fs.writeFileSync(exportar,texto,{flag:'wx',mode:0o600});
+const soloNuevas=path.join(__dirname,'.env.render-nuevas');
+if(!fs.existsSync(soloNuevas))fs.writeFileSync(soloNuevas,Object.entries(nuevos).map(([k,v])=>`${k}=${v}`).join('\n')+'\n',{flag:'wx',mode:0o600});
 const rpi=path.resolve(__dirname,'../../.dashcam-rpi-20261028.json');
 if(!fs.existsSync(rpi))fs.writeFileSync(rpi,JSON.stringify({backend:config.backend,device_id:config.device_id,device_token:config.device_token}),{flag:'wx',mode:0o600});
 console.log('Configuracion privada preparada. Tokens distintos para dispositivo y propietario. Ninguna clave impresa.');

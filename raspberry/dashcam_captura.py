@@ -84,7 +84,7 @@ def ejecutar(duracion,limite):
                 time.sleep(.2)
             else:raise RuntimeError('Sin muestras nuevas tras 30 s')
             video=subprocess.Popen([sys.executable,'-u',str(codigo/'video_espacio.py'),
-                 '--duracion',str(duracion),'--segmento','10','--limite-mib',str(limite),
+                 '--duracion',str(duracion),'--segmento','300','--limite-mib',str(limite),
                  '--conservar','--carpeta',str(carpeta)])
             apagando=False
             proxima_salud=0
@@ -129,7 +129,8 @@ def ejecutar(duracion,limite):
                throttled_observados=sorted(set(m['throttled'] for m in mediciones_salud)),
                memoria_disponible_min_kib=min((m['mem_disponible_kib'] for m in mediciones_salud),default=None),
                carga_1min_max=max((m['carga_1min'] for m in mediciones_salud),default=None))
-            cerrar(db,trip,fin,estado,dict(error=error,parciales=parciales,reloj=reloj(),cierre_estimado=False,salud=resumen))
+            cerrar(db,trip,fin,estado,dict(error=error,parciales=parciales,reloj=reloj(),cierre_estimado=False,salud=resumen,
+                                         presentacion_origen='raspberry',segmento_solicitado_s=300))
             db.commit();db.close()
             print('CIERRE:',id,estado,'parciales:',len(parciales),flush=True)
         if error or estado=='incompleto':raise RuntimeError(error or 'Hay brutos pendientes de recuperar')

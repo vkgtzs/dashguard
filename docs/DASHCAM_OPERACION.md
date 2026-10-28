@@ -3,6 +3,9 @@
 Entrega del 28 de octubre de 2026. Consultar tambien
 [resultados](dashcam-resultados-2026-10-28.md): distingue pruebas realizadas de pendientes.
 La version facial queda aplazada; esta ruta no identifica personas ni incidentes.
+El usuario mantiene por ahora modo de pruebas de 30 minutos por arranque. Para
+el producto final pidio grabacion mientras exista alimentacion; activar ese modo
+y su politica de almacenamiento queda como incremento posterior.
 
 ## Arquitectura instalada
 
@@ -20,7 +23,7 @@ No copiar archivos .env reales al repositorio de despliegue.
 
 1. Alimentar por micro-USB **PWR IN**. Conservar camara y sensores ya conectados.
 2. Mantener el conjunto inmovil al menos los primeros diez segundos para calibrar.
-3. El servicio inicia una captura de 1800 s, con segmentos de 10 s solicitados,
+3. El servicio inicia una captura de 1800 s, con segmentos de 300 s solicitados,
    1280x720, H264 a unos 2 Mbps y 15 fps nominales. La duracion del MP4 depende de
    fotogramas entregados; consultar PTS y el informe, no asumir duracion exacta.
 4. No requiere SSH ni Internet. Sin GPS registra la falta de posicion; con fallo
@@ -47,6 +50,12 @@ El cierre puede tardar al procesar el ultimo segmento. No cortar alimentacion.
 Servicios anteriores `dashguard-captura` y `dashguard-sync` permanecen detenidos;
 su timer sigue deshabilitado. No activar ambas generaciones simultaneamente.
 `Linger=yes` permite el arranque de servicios de usuario sin iniciar SSH.
+
+Para instalar otro release completo con dependencias y config privada ya presentes,
+ejecutar `bash instalar_dashcam_usuario.sh` desde ese release. Conserva unidades
+anteriores, deshabilita la generacion antigua y habilita la nueva sin iniciar
+una captura por sorpresa. El cambio de enlace app conserva el directorio anterior.
+El instalador no genera credenciales ni cambia contrasenas.
 
 ## Alimentacion y apagado
 
@@ -122,6 +131,10 @@ Segmentos habituales de 2–3 MiB, limite API/bucket de 8 MiB.
 Registros tipo video se envian despues de confirmar su objeto. Si cae la red
 o se pierde una respuesta, el siguiente intento conserva identidad y contenido.
 El backend compara contenido existente. Servicio de sync reintenta sin borrar.
+La cola nueva cubre los recorridos creados por este supervisor. La cola historica
+`cola_sync`, muestras anteriores sin recorrido y videos de ensayos antiguos se
+conservan; no se migran ni se mezclan automaticamente con la entrega de hoy.
+Por eso cero pendientes de dashcam no certifica cero pendientes historicos.
 
 Propietario: GET; dispositivo: POST/PUT, asociado a un unico device_id. Claves
 diferentes y privadas. Sin ellas el backend no inicia; GET / solo expone version.
@@ -167,3 +180,11 @@ Despues comprobar: boot_id nuevo, NTP al inicio/cierre, estado completo, duracio
 fronteras de segmentos, SHA256, pendientes cero y timer de reconexion deshabilitado.
 El script de preparacion se detiene si encuentra unidades existentes; revisarlas
 antes de rearmar otro ensayo. No sobrescribir archivos del sistema a ciegas.
+
+## Actualizacion a cinco minutos
+
+Release preparado `release-dashcam-20261028b-5min`; conserva el release anterior.
+El modo de ensayo sigue siendo de 1800 segundos. Durante la instalacion se mantiene
+la captura detenida y deshabilitada; no reactivar el arranque sin comunicarlo.
+Con cortes en fotogramas clave pueden variar las duraciones y existir un ultimo
+archivo corto. No prometer exactamente seis archivos bajo cualquier interrupcion.

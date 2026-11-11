@@ -1,0 +1,21 @@
+{
+  "name": "dashguard-backend",
+  "version": "2.0.0",
+  "description": "API de DashGuard: recibe datos del dispositivo y atiende a la aplicación del supervisor",
+  "main": "src/server.js",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.6",
+    "express": "^5.2.1"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

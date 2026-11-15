@@ -1,4 +1,4 @@
-// Funciones para mostrar fechas, distancias y resultados de verificación.
+// Funciones para mostrar fechas, distancias y resultados de verificacion
 
 import 'package:material_ui/material_ui.dart';
 

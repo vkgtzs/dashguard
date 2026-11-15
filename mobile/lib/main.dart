@@ -21,7 +21,7 @@ class DashGuardApp extends StatelessWidget {
   }
 }
 
-/// Pantalla principal: barra inferior con las cuatro secciones.
+/// Pantalla principal, barra inferior con las cuatro secciones
 class Inicio extends StatefulWidget {
   const Inicio({super.key});
 
@@ -61,7 +61,7 @@ class _InicioState extends State<Inicio> {
   }
 }
 
-/// Relleno temporal para las secciones que todavía no están hechas.
+/// Relleno temporal para las secciones que todavaa no estan hechas
 class _Pendiente extends StatelessWidget {
   const _Pendiente({required this.icono, required this.texto});
 

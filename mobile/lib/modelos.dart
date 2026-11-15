@@ -37,7 +37,7 @@ class Sesion {
   final DateTime inicio;
   final DateTime? fin;
 
-  /// 'autorizado', 'no_reconocido', 'no_concluyente' o null si aún no hay resultado.
+  /// 'autorizado', 'no_reconocido', 'no_concluyente' o null si aun no hay resultado
   final String? verificacion;
   final double? distanciaM;
 

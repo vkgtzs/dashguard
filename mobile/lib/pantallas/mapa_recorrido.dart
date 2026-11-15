@@ -6,8 +6,6 @@ import '../datos.dart';
 import '../formato.dart';
 import '../modelos.dart';
 
-/// Huecos de GPS mayores a este tiempo no se unen con una línea
-/// (misma regla que frontend/mapa.js).
 const saltoMaximo = Duration(seconds: 30);
 
 const _colorRuta = Color(0xFF175FA6);
@@ -35,8 +33,7 @@ List<List<LatLng>> prepararTramos(List<Punto> puntos) {
   return tramos;
 }
 
-/// Mapa con la ruta de una sesión: línea del recorrido, inicio, fin y los
-/// puntos donde se superó el límite de velocidad.
+/// Mapa con la ruta de una sesion: líinea del recorrido, inicio, fin y los puntos donde se supero el limite de velocidad
 class PantallaMapaRecorrido extends StatefulWidget {
   const PantallaMapaRecorrido({
     super.key,
@@ -56,7 +53,7 @@ class PantallaMapaRecorrido extends StatefulWidget {
 class _PantallaMapaRecorridoState extends State<PantallaMapaRecorrido> {
   late final Future<List<Punto>> _puntos = obtenerPuntos(widget.sesion.id);
 
-  /// Texto del punto que se tocó en el mapa.
+  /// Texto del punto que se toco en el mapa
   String? _seleccion;
 
   @override
@@ -120,7 +117,7 @@ class _PantallaMapaRecorridoState extends State<PantallaMapaRecorrido> {
             _marcador(puntos.last, 'Fin', _colorFin, 20),
           ],
         ),
-        // Atribución obligatoria de OpenStreetMap.
+        // Atribución obligatoria de OpenStreetMap
         Align(
           alignment: Alignment.bottomRight,
           child: Container(
@@ -136,7 +133,7 @@ class _PantallaMapaRecorridoState extends State<PantallaMapaRecorrido> {
     );
   }
 
-  /// Círculo que al tocarse muestra título, hora y velocidad del punto.
+  /// Circulo que al tocarse muestra titulo, hora y velocidad del punto
   Marker _marcador(Punto p, String titulo, Color color, double diametro) {
     return Marker(
       point: LatLng(p.latitud, p.longitud),
@@ -200,11 +197,7 @@ class _PantallaMapaRecorridoState extends State<PantallaMapaRecorrido> {
   }
 }
 
-/// Dibuja la línea del recorrido sobre el mapa.
-///
-/// Sustituye a PolylineLayer de flutter_map, que en la versión 8.3.2 falla en
-/// web con "Infinite loop going beyond 30 for world width"
-/// (https://github.com/fleaflet/flutter_map/issues/2234).
+/// Dibuja la linea del recorrido sobre el mapa
 class _CapaRuta extends StatelessWidget {
   const _CapaRuta({required this.tramos});
 

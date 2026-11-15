@@ -1,9 +1,4 @@
-// Fuente de datos de la app.
-//
-// Por ahora devuelve datos de prueba para poder avanzar en las pantallas sin
-// depender del backend. Para conectar con la API real solo hay que cambiar el
-// cuerpo de estas tres funciones (GET /api/dispositivos, /api/sesiones y
-// /api/sesiones/:id) y usar los fromJson de modelos.dart.
+// Fuente de datos de la app para pruebas
 
 import 'dart:math';
 
@@ -17,10 +12,6 @@ Future<List<Punto>> obtenerPuntos(String sesionId) async {
   final sesion = _sesiones.firstWhere((s) => s.id == sesionId);
   return _puntosDePrueba(sesion.inicio, _sesiones.indexOf(sesion));
 }
-
-// ---------------------------------------------------------------------------
-// Datos de prueba
-// ---------------------------------------------------------------------------
 
 final _ahora = DateTime.now();
 
@@ -67,8 +58,6 @@ final _sesiones = [
   ),
 ];
 
-/// Genera un recorrido ficticio en Tijuana: un punto cada 5 s, con un hueco de
-/// GPS a la mitad y tramos por encima del límite de velocidad.
 List<Punto> _puntosDePrueba(DateTime inicio, int variante) {
   final puntos = <Punto>[];
   var latitud = 32.5310 + variante * 0.004;

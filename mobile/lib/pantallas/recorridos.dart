@@ -7,7 +7,7 @@ import '../formato.dart';
 import '../modelos.dart';
 import 'mapa_recorrido.dart';
 
-/// Lista de recorridos (sesiones). Al tocar uno se abre su ruta en el mapa.
+/// Lista de recorridos
 class PantallaRecorridos extends StatefulWidget {
   const PantallaRecorridos({super.key});
 

@@ -4,7 +4,7 @@ import '../datos.dart';
 import '../formato.dart';
 import '../modelos.dart';
 
-/// Lista de vehículos (dispositivos DashGuard) asignados al supervisor.
+/// Lista de vehiculos 
 class PantallaVehiculos extends StatefulWidget {
   const PantallaVehiculos({super.key});
 

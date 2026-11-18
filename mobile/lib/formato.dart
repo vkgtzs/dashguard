@@ -52,3 +52,35 @@ Color colorVerificacion(String? verificacion) => switch (verificacion) {
       'no_concluyente' => const Color(0xFFC96816),
       _ => const Color(0xFF757575),
     };
+
+String textoAlerta(String tipo) => switch (tipo) {
+      'conductor_no_reconocido' => 'Conductor no reconocido',
+      'exceso_velocidad' => 'Exceso de velocidad',
+      _ => 'Alerta',
+    };
+
+IconData iconoAlerta(String tipo) => switch (tipo) {
+      'conductor_no_reconocido' => Icons.gpp_bad_outlined,
+      'exceso_velocidad' => Icons.speed,
+      _ => Icons.warning_amber_outlined,
+    };
+
+Color colorAlerta(String tipo) => switch (tipo) {
+      'conductor_no_reconocido' => const Color(0xFFB3261E),
+      'exceso_velocidad' => const Color(0xFFC96816),
+      _ => const Color(0xFF757575),
+    };
+
+String textoEvidencia(String tipo) => tipo == 'video' ? 'Video' : 'Foto';
+
+IconData iconoEvidencia(String tipo) =>
+    tipo == 'video' ? Icons.videocam_outlined : Icons.photo_outlined;
+
+String tamano(int? bytes) {
+  if (bytes == null) return '';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+String coordenadas(double latitud, double longitud) =>
+    '${latitud.toStringAsFixed(5)}, ${longitud.toStringAsFixed(5)}';

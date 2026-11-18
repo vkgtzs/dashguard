@@ -1,0 +1,19 @@
+[Unit]
+Description=DashGuard v2: recorridos, alertas y capturas bajo pedido
+After=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+Environment=LIBCAMERA_LOG_LEVELS=*:WARN
+WorkingDirectory=%h/dashguard/app
+ExecStart=/usr/bin/python3 -u %h/dashguard/app/dashguard.py
+Restart=always
+RestartSec=10s
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+UMask=0077
+
+[Install]
+WantedBy=default.target

@@ -1,7 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'pantallas/recorridos.dart';
+import 'pantallas/alertas.dart';
+import 'pantallas/evidencias.dart';
+import 'pantallas/inicio_sesion.dart';
 import 'pantallas/vehiculos.dart';
+import 'sesion.dart';
 
 void main() => runApp(const DashGuardApp());
 
@@ -16,12 +19,13 @@ class DashGuardApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF175FA6)),
       ),
-      home: const Inicio(),
+      home: const PantallaInicioSesion(),
+      routes: {'/inicio': (_) => const Inicio()},
     );
   }
 }
 
-/// Pantalla principal, barra inferior con las cuatro secciones
+/// Pantalla principal, barra inferior con las secciones
 class Inicio extends StatefulWidget {
   const Inicio({super.key});
 
@@ -32,51 +36,47 @@ class Inicio extends StatefulWidget {
 class _InicioState extends State<Inicio> {
   int _indice = 0;
 
-  static const _titulos = ['Vehículos', 'Recorridos', 'Alertas', 'Evidencias'];
+  /// Cambia al entrar a otra seccion para que Alertas y Evidencias se vuelvan a consultar
+  int _recarga = 0;
+
+  static const _titulos = ['Vehículos', 'Alertas', 'Evidencias'];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titulos[_indice])),
+      appBar: AppBar(
+        title: Text(_titulos[_indice]),
+        actions: [
+          IconButton(
+            tooltip: 'Cerrar sesión',
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              cerrarSesion();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute<void>(builder: (_) => const PantallaInicioSesion()),
+              );
+            },
+          ),
+        ],
+      ),
       body: IndexedStack(
         index: _indice,
-        children: const [
-          PantallaVehiculos(),
-          PantallaRecorridos(),
-          _Pendiente(icono: Icons.notifications_outlined, texto: 'Aquí irán las alertas'),
-          _Pendiente(icono: Icons.photo_camera_outlined, texto: 'Aquí irán las fotos y videos'),
+        children: [
+          const PantallaVehiculos(),
+          PantallaAlertas(key: ValueKey('alertas$_recarga')),
+          PantallaEvidencias(key: ValueKey('evidencias$_recarga')),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _indice,
-        onDestinationSelected: (i) => setState(() => _indice = i),
+        onDestinationSelected: (i) => setState(() {
+          if (i != _indice) _recarga++;
+          _indice = i;
+        }),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.directions_car_outlined), label: 'Vehículos'),
-          NavigationDestination(icon: Icon(Icons.route_outlined), label: 'Recorridos'),
           NavigationDestination(icon: Icon(Icons.notifications_outlined), label: 'Alertas'),
           NavigationDestination(icon: Icon(Icons.photo_camera_outlined), label: 'Evidencias'),
-        ],
-      ),
-    );
-  }
-}
-
-/// Relleno temporal para las secciones que todavaa no estan hechas
-class _Pendiente extends StatelessWidget {
-  const _Pendiente({required this.icono, required this.texto});
-
-  final IconData icono;
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icono, size: 48, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 12),
-          Text(texto),
         ],
       ),
     );

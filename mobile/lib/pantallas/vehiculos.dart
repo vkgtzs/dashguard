@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import '../datos.dart';
 import '../formato.dart';
 import '../modelos.dart';
+import 'comunes.dart';
+import 'vehiculo.dart';
 
 /// Lista de vehiculos 
 class PantallaVehiculos extends StatefulWidget {
@@ -13,7 +15,7 @@ class PantallaVehiculos extends StatefulWidget {
 }
 
 class _PantallaVehiculosState extends State<PantallaVehiculos> {
-  late final Future<List<Dispositivo>> _dispositivos = obtenerDispositivos();
+  late Future<List<Dispositivo>> _dispositivos = obtenerDispositivos();
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +23,10 @@ class _PantallaVehiculosState extends State<PantallaVehiculos> {
       future: _dispositivos,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Center(child: Text('No se pudieron cargar los vehículos'));
+          return MensajeError(
+            error: snapshot.error,
+            alReintentar: () => setState(() => _dispositivos = obtenerDispositivos()),
+          );
         }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -44,6 +49,10 @@ class _PantallaVehiculosState extends State<PantallaVehiculos> {
                   'Última conexión: ${haceCuanto(d.vistoEn)}',
                 ),
                 isThreeLine: true,
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => PantallaVehiculo(dispositivo: d)),
+                ),
               ),
             );
           },

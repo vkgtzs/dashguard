@@ -1,53 +1,55 @@
-import 'dart:async';
-
 import 'package:material_ui/material_ui.dart';
 
 import '../datos.dart';
 import '../formato.dart';
 import '../modelos.dart';
+import 'comunes.dart';
 import 'mapa_recorrido.dart';
 
-/// Lista de recorridos
+/// Lista de recorridos de un vehiculo
 class PantallaRecorridos extends StatefulWidget {
-  const PantallaRecorridos({super.key});
+  const PantallaRecorridos({super.key, required this.dispositivo});
+
+  final Dispositivo dispositivo;
 
   @override
   State<PantallaRecorridos> createState() => _PantallaRecorridosState();
 }
 
 class _PantallaRecorridosState extends State<PantallaRecorridos> {
-  late final Future<(List<Sesion>, List<Dispositivo>)> _datos =
-      (obtenerSesiones(), obtenerDispositivos()).wait;
+  late Future<List<Sesion>> _sesiones = obtenerSesiones(widget.dispositivo.id);
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<(List<Sesion>, List<Dispositivo>)>(
-      future: _datos,
+    final d = widget.dispositivo;
+    return FutureBuilder<List<Sesion>>(
+      future: _sesiones,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Center(child: Text('No se pudieron cargar los recorridos'));
+          return MensajeError(
+            error: snapshot.error,
+            alReintentar: () => setState(() => _sesiones = obtenerSesiones(d.id)),
+          );
         }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final (sesiones, dispositivos) = snapshot.data!;
+        final sesiones = snapshot.data!;
         if (sesiones.isEmpty) {
-          return const Center(child: Text('Todavía no hay recorridos'));
+          return const Center(child: Text('Este vehículo todavía no tiene recorridos'));
         }
-        final porId = {for (final d in dispositivos) d.id: d};
         return ListView.builder(
           padding: const EdgeInsets.all(12),
           itemCount: sesiones.length,
           itemBuilder: (context, i) {
             final s = sesiones[i];
-            final dispositivo = porId[s.dispositivoId];
             return Card(
               child: ListTile(
                 leading: Icon(
                   iconoVerificacion(s.verificacion),
                   color: colorVerificacion(s.verificacion),
                 ),
-                title: Text('${dispositivo?.nombre ?? s.dispositivoId} · ${fechaHora(s.inicio)}'),
+                title: Text(fechaHora(s.inicio)),
                 subtitle: Text(
                   '${s.conductor ?? textoVerificacion(s.verificacion)}\n'
                   '${distancia(s.distanciaM)}${s.fin == null ? ' · en curso' : ''}',
@@ -58,8 +60,8 @@ class _PantallaRecorridosState extends State<PantallaRecorridos> {
                   MaterialPageRoute<void>(
                     builder: (_) => PantallaMapaRecorrido(
                       sesion: s,
-                      nombreVehiculo: dispositivo?.nombre ?? s.dispositivoId,
-                      limiteKmh: dispositivo?.limiteVelocidadKmh,
+                      nombreVehiculo: d.nombre,
+                      limiteKmh: d.limiteVelocidadKmh,
                     ),
                   ),
                 ),

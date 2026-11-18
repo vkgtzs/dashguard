@@ -4,6 +4,7 @@ const { UUID } = require('./validar');
 const { expirarComandos, datos, BUCKET } = require('./dispositivo');
 
 const PAGINA = 1000; // maximo de filas por consulta en Supabase
+const PAGINA_EVIDENCIAS = 50;
 
 async function todas(consulta) {
   const filas = [];
@@ -104,11 +105,20 @@ function rutasSupervisor(supabase) {
     res.json({ comando, evidencia });
   });
 
-  // evidencias
+  // evidencias, por paginas de la mas reciente a la mas antigua
+  // ?dispositivo_id=<id> solo las de ese vehiculo; ?antes=<fecha> continua tras la ultima recibida
   r.get('/evidencias', async (req, res) => {
-    res.json({ evidencias: datos(await supabase.from('evidencias')
+    const { dispositivo_id, antes } = req.query;
+    if (dispositivo_id !== undefined && !esPropio(req, dispositivo_id)) return noEncontrado(res);
+    if (antes !== undefined && (typeof antes !== 'string' || Number.isNaN(Date.parse(antes))))
+      return res.status(400).json({ error: 'antes debe ser una fecha ISO' });
+    let consulta = supabase.from('evidencias')
       .select('id,dispositivo_id,sesion_id,tipo,fecha,latitud,longitud,bytes')
-      .in('dispositivo_id', req.dispositivos).order('fecha', { ascending: false }).limit(100)) });
+      .in('dispositivo_id', dispositivo_id ? [dispositivo_id] : req.dispositivos)
+      .order('fecha', { ascending: false }).order('id', { ascending: false })
+      .limit(PAGINA_EVIDENCIAS);
+    if (antes) consulta = consulta.lt('fecha', antes);
+    res.json({ evidencias: datos(await consulta), pagina: PAGINA_EVIDENCIAS });
   });
 
   // url firmada, vence en 5 min

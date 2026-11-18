@@ -1,6 +1,3 @@
--- DashGuard: esquema inicial. Ejecutar una vez en el editor SQL de Supabase.
--- RLS activado y sin politicas: solo el backend (service_role) accede.
-
 BEGIN;
 
 CREATE TABLE public.dispositivos (

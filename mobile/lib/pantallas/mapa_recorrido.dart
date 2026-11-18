@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../datos.dart';
 import '../formato.dart';
 import '../modelos.dart';
+import 'comunes.dart';
 
 const saltoMaximo = Duration(seconds: 30);
 
@@ -51,7 +52,7 @@ class PantallaMapaRecorrido extends StatefulWidget {
 }
 
 class _PantallaMapaRecorridoState extends State<PantallaMapaRecorrido> {
-  late final Future<List<Punto>> _puntos = obtenerPuntos(widget.sesion.id);
+  late Future<List<Punto>> _puntos = obtenerPuntos(widget.sesion.id);
 
   /// Texto del punto que se toco en el mapa
   String? _seleccion;
@@ -64,7 +65,10 @@ class _PantallaMapaRecorridoState extends State<PantallaMapaRecorrido> {
         future: _puntos,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return const Center(child: Text('No se pudo cargar el recorrido'));
+            return MensajeError(
+              error: snapshot.error,
+              alReintentar: () => setState(() => _puntos = obtenerPuntos(widget.sesion.id)),
+            );
           }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());

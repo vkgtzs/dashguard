@@ -129,3 +129,11 @@ test('evidencias: no se puede pedir un vehiculo ajeno ni una fecha invalida', as
     assert.equal((await pedir('?dispositivo_id=pi-1')).status, 200);
   });
 });
+
+test('alerta de verificacion no concluyente', () => {
+  const r = validarRegistro({ id: ID, tipo: 'alerta', datos: {
+    sesion_id: SESION, tipo: 'verificacion_no_concluyente', fecha: FECHA,
+    detalle: { cuadros: 40, cuadros_con_rostro: 0, motivos: { sin_rostro: 40 } } } });
+  assert.equal(r.datos.tipo, 'verificacion_no_concluyente');
+  assert.equal(r.datos.latitud, null);
+});

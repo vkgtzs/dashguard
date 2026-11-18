@@ -55,18 +55,21 @@ Color colorVerificacion(String? verificacion) => switch (verificacion) {
 
 String textoAlerta(String tipo) => switch (tipo) {
       'conductor_no_reconocido' => 'Conductor no reconocido',
+      'verificacion_no_concluyente' => 'Verificación no concluyente',
       'exceso_velocidad' => 'Exceso de velocidad',
       _ => 'Alerta',
     };
 
 IconData iconoAlerta(String tipo) => switch (tipo) {
       'conductor_no_reconocido' => Icons.gpp_bad_outlined,
+      'verificacion_no_concluyente' => Icons.gpp_maybe_outlined,
       'exceso_velocidad' => Icons.speed,
       _ => Icons.warning_amber_outlined,
     };
 
 Color colorAlerta(String tipo) => switch (tipo) {
       'conductor_no_reconocido' => const Color(0xFFB3261E),
+      'verificacion_no_concluyente' => const Color(0xFFC96816),
       'exceso_velocidad' => const Color(0xFFC96816),
       _ => const Color(0xFF757575),
     };

@@ -3,6 +3,7 @@
 - Abre y cierra recorridos segun el movimiento (IMU, o GPS si la IMU falla).
 - Registra un punto GPS cada pocos segundos y la distancia recorrida.
 - Genera alerta de exceso de velocidad con el limite configurado en la app.
+- Verifica el rostro del conductor al iniciar cada recorrido.
 - Atiende los comandos de foto o video que pide el supervisor.
 - Todo pasa por la cola local (almacen) y se sincroniza con el backend.
 
@@ -21,6 +22,7 @@ from pathlib import Path
 import almacen
 import camara
 import gps
+import rostros
 import sincronizar
 from imu import IMU, DetectorMovimiento
 from velocidad import DetectorExceso
@@ -77,7 +79,6 @@ class Recorrido:
         fecha = almacen.ahora_utc()
         almacen.encolar(self.db, "sesion_inicio", dict(sesion_id=self.id, fecha=fecha))
         self._guardar(fecha)
-        # Pendiente: lanzar aqui la verificacion facial del conductor.
 
     def registrar(self, lectura, ahora):
         if not lectura["valido"]:
@@ -142,6 +143,34 @@ def atender_comando(db, comando, estado_gps, recorrido):
         ruta.unlink(missing_ok=True)
         almacen.encolar(db, "comando_fallido", dict(comando_id=comando["id"], error=str(error)[:200]))
         log("Fallo la captura:", error)
+    sincronizar_ya.set()
+
+
+ALERTA_POR_RESULTADO = {"no_reconocido": "conductor_no_reconocido",
+                        "no_concluyente": "verificacion_no_concluyente"}
+
+
+def hilo_verificacion(sesion_id, estado_gps):
+    db = almacen.abrir(DB)
+    try:
+        try:
+            informe = rostros.verificar_en_camara()
+        except Exception as error:
+            informe = dict(resultado="no_concluyente", conductor_id=None,
+                           motivos={"error": str(error)[:150]})
+        resultado = informe["resultado"]
+        almacen.encolar(db, "verificacion", dict(
+            sesion_id=sesion_id, resultado=resultado,
+            conductor_id=informe["conductor_id"] if resultado == "autorizado" else None))
+        if resultado in ALERTA_POR_RESULTADO:
+            almacen.encolar(db, "alerta", dict(
+                sesion_id=sesion_id, tipo=ALERTA_POR_RESULTADO[resultado],
+                fecha=almacen.ahora_utc(), **posicion_actual(estado_gps),
+                detalle={k: informe.get(k) for k in
+                         ("cuadros", "cuadros_con_rostro", "mejor_similitud", "motivos")}))
+        log("Verificacion:", resultado, informe)
+    finally:
+        db.close()
     sincronizar_ya.set()
 
 
@@ -249,6 +278,8 @@ def main():
                 recorrido.iniciar()
                 exceso = DetectorExceso()
                 log("Recorrido iniciado:", recorrido.id)
+                threading.Thread(target=hilo_verificacion, args=(recorrido.id, estado_gps),
+                                 daemon=True).start()
                 sincronizar_ya.set()
             elif evento == "fin":
                 log("Recorrido terminado:", recorrido.terminar(), f"{recorrido.distancia_m:.0f} m")

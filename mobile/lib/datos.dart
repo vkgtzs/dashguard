@@ -72,7 +72,7 @@ Future<(Comando, Evidencia?)> consultarComando(String comandoId) async {
 Future<({List<Evidencia> evidencias, bool hayMas})> obtenerEvidencias(
     {String? dispositivoId, DateTime? antes}) async {
   final consulta = {
-    if (dispositivoId != null) 'dispositivo_id': dispositivoId,
+    'dispositivo_id': ?dispositivoId,
     if (antes != null) 'antes': antes.toUtc().toIso8601String(),
   };
   final ruta = Uri(path: '/api/evidencias', queryParameters: consulta.isEmpty ? null : consulta);

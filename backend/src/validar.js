@@ -61,7 +61,7 @@ const validadores = {
   }),
 
   alerta: d => {
-    if (!['conductor_no_reconocido', 'exceso_velocidad'].includes(d.tipo))
+    if (!['conductor_no_reconocido', 'verificacion_no_concluyente', 'exceso_velocidad'].includes(d.tipo))
       throw Error('tipo de alerta desconocido');
     const detalle = d.detalle ?? {};
     if (typeof detalle !== 'object' || Array.isArray(detalle) || JSON.stringify(detalle).length > 2000)

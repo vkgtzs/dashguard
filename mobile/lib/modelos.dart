@@ -94,7 +94,7 @@ class Alerta {
   final String id;
   final String dispositivoId;
 
-  /// 'conductor_no_reconocido' o 'exceso_velocidad'
+  /// 'conductor_no_reconocido', 'verificacion_no_concluyente' o 'exceso_velocidad'
   final String tipo;
   final DateTime fecha;
   final bool leida;

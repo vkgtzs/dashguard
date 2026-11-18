@@ -17,6 +17,8 @@ CREATE TABLE public.conductores (
     nombre text NOT NULL CHECK (length(trim(nombre)) BETWEEN 1 AND 80),
     activo boolean NOT NULL DEFAULT true,
     rostro_registrado boolean NOT NULL DEFAULT false,
+    descriptores jsonb,
+    rostro_actualizado timestamptz,
     creado_en timestamptz NOT NULL DEFAULT now()
 );
 
@@ -47,17 +49,20 @@ CREATE TABLE public.puntos (
         REFERENCES public.sesiones (id, dispositivo_id) ON DELETE CASCADE
 );
 CREATE INDEX puntos_por_sesion ON public.puntos (sesion_id, fecha);
+CREATE INDEX puntos_por_dispositivo ON public.puntos (dispositivo_id, fecha DESC);
 
 CREATE TABLE public.comandos (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     dispositivo_id text NOT NULL REFERENCES public.dispositivos(id) ON DELETE CASCADE,
-    tipo text NOT NULL CHECK (tipo IN ('foto', 'video')),
+    tipo text NOT NULL CHECK (tipo IN ('foto', 'video', 'registro_rostro')),
+    conductor_id uuid REFERENCES public.conductores(id) ON DELETE CASCADE,
     estado text NOT NULL DEFAULT 'pendiente'
         CHECK (estado IN ('pendiente', 'completado', 'fallido', 'expirado')),
     error text,
     solicitado_por uuid REFERENCES auth.users(id) ON DELETE SET NULL,
     creado_en timestamptz NOT NULL DEFAULT now(),
-    actualizado_en timestamptz NOT NULL DEFAULT now()
+    actualizado_en timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT comandos_conductor_check CHECK ((tipo = 'registro_rostro') = (conductor_id IS NOT NULL))
 );
 CREATE INDEX comandos_pendientes ON public.comandos (dispositivo_id, creado_en)
     WHERE estado = 'pendiente';
@@ -78,6 +83,7 @@ CREATE TABLE public.alertas (
         REFERENCES public.sesiones (id, dispositivo_id) ON DELETE CASCADE
 );
 CREATE INDEX alertas_por_dispositivo ON public.alertas (dispositivo_id, fecha DESC);
+CREATE INDEX alertas_pendientes ON public.alertas (dispositivo_id) WHERE NOT leida;
 
 CREATE TABLE public.evidencias (
     id uuid PRIMARY KEY,

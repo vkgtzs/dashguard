@@ -4,7 +4,8 @@
 - Registra un punto GPS cada pocos segundos y la distancia recorrida.
 - Genera alerta de exceso de velocidad con el limite configurado en la app.
 - Verifica el rostro del conductor al iniciar cada recorrido.
-- Atiende los comandos de foto o video que pide el supervisor.
+- Atiende los comandos de foto, video o registro de rostro que pide el supervisor.
+- Mantiene al dia los rostros de los conductores de la cuenta.
 - Todo pasa por la cola local (almacen) y se sincroniza con el backend.
 
 Uso:
@@ -128,8 +129,26 @@ def capturar(tipo, ruta):
         raise RuntimeError("el archivo excede 10 MB")
 
 
+def registrar_rostro(db, comando):
+    log("Registrando rostro del conductor", comando.get("conductor_id"))
+    try:
+        if not comando.get("conductor_id"):
+            raise ValueError("el comando no indica el conductor")
+        descriptores = rostros.capturar_muestras(aviso=lambda texto: log(texto.strip()))
+        almacen.encolar(db, "rostro", dict(conductor_id=comando["conductor_id"],
+                                           comando_id=comando["id"], descriptores=descriptores))
+        log("Rostro registrado; se enviara al servidor")
+    except Exception as error:
+        almacen.encolar(db, "comando_fallido", dict(comando_id=comando["id"], error=str(error)[:200]))
+        log("Fallo el registro de rostro:", error)
+    sincronizar_ya.set()
+
+
 def atender_comando(db, comando, estado_gps, recorrido):
     tipo = comando["tipo"]
+    if tipo == "registro_rostro":
+        registrar_rostro(db, comando)
+        return
     extension = "jpg" if tipo == "foto" else "mp4"
     ruta = EVIDENCIAS / f"{time.strftime('%Y%m%d-%H%M%S')}-{comando['id'][:8]}.{extension}"
     datos = dict(fecha=almacen.ahora_utc(), sesion_id=recorrido.id,
@@ -185,12 +204,8 @@ def hilo_red(config):
     db = almacen.abrir(DB)
     try:
         while not parar.is_set():
-            try:
-                for comando in sincronizar.consultar_estado(db, config):
-                    log("Comando recibido:", comando["tipo"], comando["id"])
-                    comandos.put(comando)
-            except Exception as error:
-                log("No se pudo consultar el backend:", error)
+            # Primero se envia lo pendiente (incluidos rostros nuevos) y despues se
+            # descarga el estado, para no reemplazar un rostro antes de subirlo.
             try:
                 enviados = sincronizar.una_vez(db, config)
                 if enviados:
@@ -198,6 +213,14 @@ def hilo_red(config):
                 limpiar_evidencias(db)
             except Exception as error:
                 log("Sincronizacion pendiente:", error)
+            try:
+                for comando in sincronizar.consultar_estado(db, config):
+                    log("Comando recibido:", comando["tipo"], comando["id"])
+                    comandos.put(comando)
+                if sincronizar.sincronizar_rostros(db, config):
+                    log("Rostros de conductores actualizados:", len(rostros.cargar_conductores()))
+            except Exception as error:
+                log("No se pudo consultar el backend:", error)
             sincronizar_ya.wait(SEGUNDOS_RED)
             sincronizar_ya.clear()
     finally:

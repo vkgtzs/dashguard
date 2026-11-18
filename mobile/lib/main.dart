@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
+import 'datos.dart';
+
 import 'pantallas/alertas.dart';
+import 'pantallas/conductores.dart';
 import 'pantallas/evidencias.dart';
 import 'pantallas/inicio_sesion.dart';
 import 'pantallas/vehiculos.dart';
@@ -36,10 +41,37 @@ class Inicio extends StatefulWidget {
 class _InicioState extends State<Inicio> {
   int _indice = 0;
 
-  /// Cambia al entrar a otra seccion para que Alertas y Evidencias se vuelvan a consultar
+  /// Cambia al entrar a otra seccion para que se vuelva a consultar
   int _recarga = 0;
 
-  static const _titulos = ['Vehículos', 'Alertas', 'Evidencias'];
+  /// Alertas sin leer, se muestran en la barra inferior
+  int _pendientes = 0;
+  Timer? _reloj;
+
+  static const _titulos = ['Vehículos', 'Alertas', 'Evidencias', 'Conductores'];
+  static const _cadaCuantoAlertas = Duration(minutes: 1);
+
+  @override
+  void initState() {
+    super.initState();
+    _contarAlertas();
+    _reloj = Timer.periodic(_cadaCuantoAlertas, (_) => _contarAlertas());
+  }
+
+  @override
+  void dispose() {
+    _reloj?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _contarAlertas() async {
+    try {
+      final pendientes = await alertasPendientes();
+      if (mounted) setState(() => _pendientes = pendientes);
+    } catch (_) {
+      // sin conexion se conserva el ultimo valor
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,9 +94,10 @@ class _InicioState extends State<Inicio> {
       body: IndexedStack(
         index: _indice,
         children: [
-          const PantallaVehiculos(),
-          PantallaAlertas(key: ValueKey('alertas$_recarga')),
+          PantallaVehiculos(key: ValueKey('vehiculos$_recarga')),
+          PantallaAlertas(key: ValueKey('alertas$_recarga'), alLeer: _contarAlertas),
           PantallaEvidencias(key: ValueKey('evidencias$_recarga')),
+          PantallaConductores(key: ValueKey('conductores$_recarga')),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -72,11 +105,20 @@ class _InicioState extends State<Inicio> {
         onDestinationSelected: (i) => setState(() {
           if (i != _indice) _recarga++;
           _indice = i;
+          _contarAlertas();
         }),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.directions_car_outlined), label: 'Vehículos'),
-          NavigationDestination(icon: Icon(Icons.notifications_outlined), label: 'Alertas'),
-          NavigationDestination(icon: Icon(Icons.photo_camera_outlined), label: 'Evidencias'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.directions_car_outlined), label: 'Vehículos'),
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: _pendientes > 0,
+              label: Text(_pendientes > 99 ? '99+' : '$_pendientes'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            label: 'Alertas',
+          ),
+          const NavigationDestination(icon: Icon(Icons.photo_camera_outlined), label: 'Evidencias'),
+          const NavigationDestination(icon: Icon(Icons.people_outline), label: 'Conductores'),
         ],
       ),
     );

@@ -97,3 +97,68 @@ class PruebasVerificar(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PruebasSincronizacionRostros(unittest.TestCase):
+    CONFIG = dict(backend="https://ejemplo.invalid", dispositivo_id="pi-1", token="t" * 40)
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        import almacen
+        self.almacen = almacen
+        self.carpeta = tempfile.TemporaryDirectory()
+        self.ruta = Path(self.carpeta.name) / "conductores.json"
+        self.db = almacen.abrir(Path(self.carpeta.name) / "datos.sqlite3")
+        self.descargas = 0
+        self.servidor_rostros = [dict(id=A, nombre="A", descriptores=[[1.0, 0.0]], rostro_actualizado="t1")]
+
+    def tearDown(self):
+        self.db.close()
+        self.carpeta.cleanup()
+
+    def servidor(self, peticion, timeout):
+        import io
+        import json
+
+        class Respuesta(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                self.close()
+        self.descargas += 1
+        return Respuesta(json.dumps(dict(conductores=self.servidor_rostros)).encode())
+
+    def sincronizar(self, conductores):
+        import sincronizar
+        self.almacen.guardar_ajuste(self.db, "conductores", conductores)
+        return sincronizar.sincronizar_rostros(self.db, self.CONFIG, self.servidor, self.ruta)
+
+    def test_descarga_solo_cuando_cambia(self):
+        estado = [dict(id=A, nombre="A", rostro_actualizado="t1"), dict(id=B, nombre="B", rostro_actualizado=None)]
+        self.assertTrue(self.sincronizar(estado))
+        self.assertEqual(list(rostros.cargar_conductores(self.ruta)), [A])
+        self.assertFalse(self.sincronizar(estado))
+        self.assertEqual(self.descargas, 1)
+
+    def test_conductor_desactivado_se_quita(self):
+        self.sincronizar([dict(id=A, nombre="A", rostro_actualizado="t1")])
+        self.servidor_rostros = []
+        self.assertTrue(self.sincronizar([]))
+        self.assertEqual(rostros.cargar_conductores(self.ruta), {})
+
+    def test_sin_red_conserva_los_rostros(self):
+        import sincronizar
+        self.sincronizar([dict(id=A, nombre="A", rostro_actualizado="t1")])
+        self.almacen.guardar_ajuste(self.db, "conductores", [dict(id=A, nombre="A", rostro_actualizado="t2")])
+
+        def sin_red(peticion, timeout):
+            raise OSError("sin red")
+        with self.assertRaises(OSError):
+            sincronizar.sincronizar_rostros(self.db, self.CONFIG, sin_red, self.ruta)
+        self.assertEqual(list(rostros.cargar_conductores(self.ruta)), [A])
+        self.servidor_rostros[0]["rostro_actualizado"] = "t2"
+        self.assertTrue(sincronizar.sincronizar_rostros(self.db, self.CONFIG, self.servidor, self.ruta))

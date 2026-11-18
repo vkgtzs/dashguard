@@ -137,3 +137,32 @@ test('alerta de verificacion no concluyente', () => {
   assert.equal(r.datos.tipo, 'verificacion_no_concluyente');
   assert.equal(r.datos.latitud, null);
 });
+
+test('rostro: valida cantidad y tamano de las muestras', () => {
+  const muestra = Array.from({ length: 128 }, (_, i) => i / 128);
+  const rostro = descriptores => validarRegistro({ id: ID, tipo: 'rostro', datos: { conductor_id: ID, descriptores } });
+  assert.equal(rostro([muestra, muestra, muestra]).datos.descriptores.length, 3);
+  assert.equal(rostro([muestra, muestra, muestra]).datos.comando_id, null);
+  assert.throws(() => rostro([muestra, muestra]), /entre 3 y 20/);
+  assert.throws(() => rostro([muestra, muestra, muestra.slice(1)]), /128/);
+  assert.throws(() => rostro([muestra, muestra, [...muestra.slice(1), NaN]]), /128/);
+});
+
+test('supervisor: comandos y listas paginadas validan sus parametros', async () => {
+  const supabase = supabaseSimulado({ data: [{ id: 'pi-1' }], error: null });
+  supabase.auth.getUser = async () => ({ data: { user: { id: 'u-1' } }, error: null });
+  await conServidor(supabase, async base => {
+    const cabeceras = { Authorization: 'Bearer valido', 'Content-Type': 'application/json' };
+    const comando = cuerpo => fetch(base + '/api/comandos', { method: 'POST', headers: cabeceras, body: JSON.stringify(cuerpo) });
+    assert.equal((await comando({ dispositivo_id: 'pi-1', tipo: 'otro' })).status, 400);
+    assert.equal((await comando({ dispositivo_id: 'pi-1', tipo: 'registro_rostro' })).status, 400);
+    assert.equal((await comando({ dispositivo_id: 'pi-ajeno', tipo: 'foto' })).status, 404);
+    const pedir = ruta => fetch(base + ruta, { headers: cabeceras });
+    assert.equal((await pedir('/api/sesiones?antes=ayer')).status, 400);
+    assert.equal((await pedir('/api/alertas?dispositivo_id=pi-ajeno')).status, 404);
+    assert.equal((await pedir('/api/alertas?dispositivo_id=pi-1')).status, 200);
+    const pendientes = await pedir('/api/alertas/pendientes');
+    assert.equal(pendientes.status, 200);
+    assert.equal(typeof (await pendientes.json()).pendientes, 'number');
+  });
+});

@@ -6,6 +6,10 @@ class Dispositivo {
     required this.nombre,
     required this.limiteVelocidadKmh,
     this.vistoEn,
+    this.ultimaPosicion,
+    this.enRecorrido = false,
+    this.recorridos = 0,
+    this.distanciaTotalM = 0,
   });
 
   final String id;
@@ -13,11 +17,38 @@ class Dispositivo {
   final int limiteVelocidadKmh;
   final DateTime? vistoEn;
 
+  /// Ultimo punto de GPS recibido, o null si nunca ha enviado ubicacion
+  final Punto? ultimaPosicion;
+
+  /// true si su ultimo recorrido todavia no termina
+  final bool enRecorrido;
+  final int recorridos;
+
+  /// Suma de la distancia de todos sus recorridos terminados
+  final double distanciaTotalM;
+
+  Dispositivo conLimite(int limite) => Dispositivo(
+        id: id,
+        nombre: nombre,
+        limiteVelocidadKmh: limite,
+        vistoEn: vistoEn,
+        ultimaPosicion: ultimaPosicion,
+        enRecorrido: enRecorrido,
+        recorridos: recorridos,
+        distanciaTotalM: distanciaTotalM,
+      );
+
   factory Dispositivo.fromJson(Map<String, dynamic> j) => Dispositivo(
         id: j['id'] as String,
         nombre: j['nombre'] as String,
         limiteVelocidadKmh: (j['limite_velocidad_kmh'] as num).toInt(),
         vistoEn: _fecha(j['visto_en']),
+        ultimaPosicion: j['ultima_posicion'] == null
+            ? null
+            : Punto.fromJson(j['ultima_posicion'] as Map<String, dynamic>),
+        enRecorrido: j['en_recorrido'] as bool? ?? false,
+        recorridos: (j['recorridos'] as num?)?.toInt() ?? 0,
+        distanciaTotalM: (j['distancia_total_m'] as num?)?.toDouble() ?? 0,
       );
 }
 
@@ -123,7 +154,7 @@ class Comando {
 
   final String id;
 
-  /// 'foto' o 'video'
+  /// 'foto', 'video' o 'registro_rostro'
   final String tipo;
 
   /// 'pendiente', 'completado', 'fallido' o 'expirado'
@@ -169,3 +200,32 @@ class Evidencia {
         bytes: (j['bytes'] as num?)?.toInt(),
       );
 }
+
+class Conductor {
+  const Conductor({
+    required this.id,
+    required this.nombre,
+    required this.activo,
+    required this.rostroRegistrado,
+    this.rostroActualizado,
+  });
+
+  final String id;
+  final String nombre;
+
+  /// Los conductores inactivos no se reconocen en ningun vehiculo
+  final bool activo;
+  final bool rostroRegistrado;
+  final DateTime? rostroActualizado;
+
+  factory Conductor.fromJson(Map<String, dynamic> j) => Conductor(
+        id: j['id'] as String,
+        nombre: j['nombre'] as String,
+        activo: j['activo'] as bool? ?? true,
+        rostroRegistrado: j['rostro_registrado'] as bool? ?? false,
+        rostroActualizado: _fecha(j['rostro_actualizado']),
+      );
+}
+
+/// Una pagina de una lista larga y si quedan mas elementos por pedir
+typedef Pagina<T> = ({List<T> elementos, bool hayMas});

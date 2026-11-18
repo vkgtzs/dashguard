@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 
 TIPOS = ("sesion_inicio", "verificacion", "sesion_fin", "punto",
-         "alerta", "evidencia", "comando_fallido")
+         "alerta", "evidencia", "comando_fallido", "rostro")
 
 
 def ahora_utc():

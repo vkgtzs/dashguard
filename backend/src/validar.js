@@ -91,6 +91,21 @@ const validadores = {
     };
   },
 
+  rostro: d => {
+    const muestras = d.descriptores;
+    if (!Array.isArray(muestras) || muestras.length < 3 || muestras.length > 20)
+      throw Error('descriptores debe tener entre 3 y 20 muestras');
+    for (const m of muestras) {
+      if (!Array.isArray(m) || m.length !== 128 || !m.every(v => typeof v === 'number' && Number.isFinite(v)))
+        throw Error('cada muestra debe tener 128 numeros');
+    }
+    return {
+      conductor_id: uuid(d.conductor_id, 'conductor_id'),
+      comando_id: uuidOpcional(d.comando_id, 'comando_id'),
+      descriptores: muestras,
+    };
+  },
+
   comando_fallido: d => ({
     comando_id: uuid(d.comando_id, 'comando_id'),
     error: typeof d.error === 'string' ? d.error.slice(0, 200) : 'sin detalle',

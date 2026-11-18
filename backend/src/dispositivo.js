@@ -74,6 +74,20 @@ async function aplicar(supabase, dispositivo, { id, tipo, datos: d }) {
       return;
     }
 
+    case 'rostro': {
+      const filas = datos(await supabase.from('conductores')
+        .update({ descriptores: d.descriptores, rostro_registrado: true,
+                  rostro_actualizado: new Date().toISOString() })
+        .eq('id', d.conductor_id).eq('supervisor_id', dispositivo.supervisor_id).select('id'));
+      if (!filas.length) throw Object.assign(Error('conductor desconocido'), { code: '23503' });
+      if (d.comando_id) {
+        datos(await supabase.from('comandos')
+          .update({ estado: 'completado', error: null, actualizado_en: new Date().toISOString() })
+          .eq('id', d.comando_id).eq('dispositivo_id', dispositivo.id));
+      }
+      return;
+    }
+
     case 'comando_fallido':
       return datos(await supabase.from('comandos')
         .update({ estado: 'fallido', error: d.error, actualizado_en: new Date().toISOString() })
@@ -142,12 +156,20 @@ function rutasDispositivo(supabase) {
   r.get('/estado', async (req, res) => {
     const { id, supervisor_id, limite_velocidad_kmh } = req.dispositivo;
     await expirarComandos(supabase, [id]);
-    const comandos = datos(await supabase.from('comandos').select('id,tipo,creado_en')
+    const comandos = datos(await supabase.from('comandos').select('id,tipo,conductor_id,creado_en')
       .eq('dispositivo_id', id).eq('estado', 'pendiente').order('creado_en'));
-    const conductores = datos(await supabase.from('conductores').select('id,nombre')
+    const conductores = datos(await supabase.from('conductores').select('id,nombre,rostro_actualizado')
       .eq('supervisor_id', supervisor_id).eq('activo', true));
     datos(await supabase.from('dispositivos').update({ visto_en: new Date().toISOString() }).eq('id', id));
     res.json({ limite_velocidad_kmh, conductores, comandos });
+  });
+
+  // rostros de los conductores activos de la cuenta, para verificar en el vehiculo
+  r.get('/rostros', async (req, res) => {
+    res.json({ conductores: datos(await supabase.from('conductores')
+      .select('id,nombre,descriptores,rostro_actualizado')
+      .eq('supervisor_id', req.dispositivo.supervisor_id).eq('activo', true)
+      .not('descriptores', 'is', null)) });
   });
 
   return r;

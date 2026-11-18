@@ -16,14 +16,9 @@ Future<List<Dispositivo>> obtenerDispositivos() async {
 }
 
 /// Recorridos de un vehiculo, del mas reciente al mas antiguo
-/// El backend devuelve los ultimos 100 de todos los vehiculos y aqui se filtran
-Future<List<Sesion>> obtenerSesiones(String dispositivoId) async {
-  final json = await _llamar('GET', '/api/sesiones');
-  return [
-    for (final s in json['sesiones'] as List)
-      if ((s as Map<String, dynamic>)['dispositivo_id'] == dispositivoId) Sesion.fromJson(s),
-  ];
-}
+Future<Pagina<Sesion>> obtenerSesiones(String dispositivoId, {DateTime? antes}) =>
+    _pagina('/api/sesiones', 'sesiones', Sesion.fromJson,
+        dispositivoId: dispositivoId, antes: antes);
 
 Future<List<Punto>> obtenerPuntos(String sesionId) async {
   final json = await _llamar('GET', '/api/sesiones/$sesionId');
@@ -33,14 +28,13 @@ Future<List<Punto>> obtenerPuntos(String sesionId) async {
 }
 
 /// Alertas de un vehiculo, o de todos si no se indica, de la mas reciente a la mas antigua
-/// El backend devuelve las ultimas 100 de todos los vehiculos y aqui se filtran
-Future<List<Alerta>> obtenerAlertas([String? dispositivoId]) async {
-  final json = await _llamar('GET', '/api/alertas');
-  return [
-    for (final a in json['alertas'] as List)
-      if (dispositivoId == null || (a as Map<String, dynamic>)['dispositivo_id'] == dispositivoId)
-        Alerta.fromJson(a as Map<String, dynamic>),
-  ];
+Future<Pagina<Alerta>> obtenerAlertas({String? dispositivoId, DateTime? antes}) =>
+    _pagina('/api/alertas', 'alertas', Alerta.fromJson, dispositivoId: dispositivoId, antes: antes);
+
+/// Cantidad de alertas sin leer de todos los vehiculos
+Future<int> alertasPendientes() async {
+  final json = await _llamar('GET', '/api/alertas/pendientes');
+  return (json['pendientes'] as num).toInt();
 }
 
 /// Nombre de cada vehiculo por su id, para mostrarlo en las listas generales
@@ -49,6 +43,16 @@ Future<Map<String, String>> nombresVehiculos() async =>
 
 Future<void> marcarAlertaLeida(String alertaId) =>
     _llamar('PATCH', '/api/alertas/$alertaId', cuerpo: {'leida': true});
+
+/// Datos actualizados de un vehiculo (ubicacion, kilometraje, estado)
+Future<Dispositivo> obtenerDispositivo(String dispositivoId) async {
+  final dispositivos = await obtenerDispositivos();
+  return dispositivos.firstWhere((d) => d.id == dispositivoId,
+      orElse: () => throw const ErrorApp('Este vehículo ya no está en tu cuenta'));
+}
+
+Future<void> cambiarLimite(String dispositivoId, int limiteKmh) =>
+    _llamar('PATCH', '/api/dispositivos/$dispositivoId', cuerpo: {'limite_velocidad_kmh': limiteKmh});
 
 /// Pide al vehiculo una foto o un video corto
 Future<Comando> solicitarCaptura(String dispositivoId, String tipo) async {
@@ -67,31 +71,66 @@ Future<(Comando, Evidencia?)> consultarComando(String comandoId) async {
   );
 }
 
-/// Una pagina de evidencias, de la mas reciente a la mas antigua
-/// Sin dispositivoId trae las de todos los vehiculos; con antes, continua tras esa fecha
-Future<({List<Evidencia> evidencias, bool hayMas})> obtenerEvidencias(
-    {String? dispositivoId, DateTime? antes}) async {
-  final consulta = {
-    'dispositivo_id': ?dispositivoId,
-    if (antes != null) 'antes': antes.toUtc().toIso8601String(),
-  };
-  final ruta = Uri(path: '/api/evidencias', queryParameters: consulta.isEmpty ? null : consulta);
-  final json = await _llamar('GET', ruta.toString());
-  final todas = json['evidencias'] as List;
-  return (
-    evidencias: [
-      for (final e in todas)
-        if (dispositivoId == null || (e as Map<String, dynamic>)['dispositivo_id'] == dispositivoId)
-          Evidencia.fromJson(e as Map<String, dynamic>),
-    ],
-    hayMas: todas.length >= ((json['pagina'] as num?)?.toInt() ?? 50),
-  );
-}
+/// Evidencias de un vehiculo, o de todos si no se indica, de la mas reciente a la mas antigua
+Future<Pagina<Evidencia>> obtenerEvidencias({String? dispositivoId, DateTime? antes}) =>
+    _pagina('/api/evidencias', 'evidencias', Evidencia.fromJson,
+        dispositivoId: dispositivoId, antes: antes);
 
 /// Enlace temporal al archivo, vence en 5 minutos
 Future<String> urlEvidencia(String evidenciaId) async {
   final json = await _llamar('GET', '/api/evidencias/$evidenciaId/url');
   return json['url'] as String;
+}
+
+Future<List<Conductor>> obtenerConductores() async {
+  final json = await _llamar('GET', '/api/conductores');
+  return [
+    for (final c in json['conductores'] as List) Conductor.fromJson(c as Map<String, dynamic>),
+  ];
+}
+
+Future<Conductor> crearConductor(String nombre) async {
+  final json = await _llamar('POST', '/api/conductores', cuerpo: {'nombre': nombre});
+  return Conductor.fromJson(json['conductor'] as Map<String, dynamic>);
+}
+
+Future<Conductor> actualizarConductor(String conductorId,
+    {String? nombre, bool? activo, bool borrarRostro = false}) async {
+  final json = await _llamar('PATCH', '/api/conductores/$conductorId', cuerpo: {
+    'nombre': ?nombre,
+    'activo': ?activo,
+    if (borrarRostro) 'borrar_rostro': true,
+  });
+  return Conductor.fromJson(json['conductor'] as Map<String, dynamic>);
+}
+
+Future<void> eliminarConductor(String conductorId) =>
+    _llamar('DELETE', '/api/conductores/$conductorId');
+
+/// Pide a un vehiculo que tome las muestras del rostro del conductor sentado frente a la camara
+Future<Comando> solicitarRegistroRostro(String dispositivoId, String conductorId) async {
+  final json = await _llamar('POST', '/api/comandos', cuerpo: {
+    'dispositivo_id': dispositivoId,
+    'tipo': 'registro_rostro',
+    'conductor_id': conductorId,
+  });
+  return Comando.fromJson(json['comando'] as Map<String, dynamic>);
+}
+
+/// Pide una pagina al backend; antes indica desde donde continuar
+Future<Pagina<T>> _pagina<T>(String ruta, String campo, T Function(Map<String, dynamic>) leer,
+    {String? dispositivoId, DateTime? antes}) async {
+  final consulta = {
+    'dispositivo_id': ?dispositivoId,
+    if (antes != null) 'antes': antes.toUtc().toIso8601String(),
+  };
+  final json = await _llamar(
+      'GET', Uri(path: ruta, queryParameters: consulta.isEmpty ? null : consulta).toString());
+  final filas = json[campo] as List;
+  return (
+    elementos: [for (final f in filas) leer(f as Map<String, dynamic>)],
+    hayMas: filas.length >= ((json['pagina'] as num?)?.toInt() ?? 50),
+  );
 }
 
 /// Llamada al backend con el token del supervisor, reintenta una vez si vencio
@@ -115,6 +154,7 @@ Future<http.Response> _pedir(
   final peticion = switch (metodo) {
     'POST' => http.post(url, headers: conCuerpo, body: jsonEncode(cuerpo)),
     'PATCH' => http.patch(url, headers: conCuerpo, body: jsonEncode(cuerpo)),
+    'DELETE' => http.delete(url, headers: encabezados),
     _ => http.get(url, headers: encabezados),
   };
   return enviar(peticion, 'el servidor de DashGuard');

@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 import almacen
+import rostros
 
 
 def configurar(ruta):
@@ -79,3 +80,21 @@ def consultar_estado(db, config, enviar=urlopen):
     almacen.guardar_ajuste(db, "limite_velocidad_kmh", estado["limite_velocidad_kmh"])
     almacen.guardar_ajuste(db, "conductores", estado["conductores"])
     return [c for c in estado["comandos"] if almacen.comando_es_nuevo(db, c["id"])]
+
+
+def version_rostros(conductores):
+    return sorted([c["id"], c["rostro_actualizado"]] for c in conductores if c.get("rostro_actualizado"))
+
+
+def sincronizar_rostros(db, config, enviar=urlopen, ruta=rostros.CONDUCTORES):
+    """Descarga los rostros de la cuenta si cambiaron desde la ultima vez."""
+    version = version_rostros(almacen.leer_ajuste(db, "conductores", []))
+    if version == almacen.leer_ajuste(db, "rostros_version"):
+        return False
+    respuesta = _peticion(config, "/dispositivo/rostros", enviar=enviar)
+    rostros.guardar_conductores({
+        c["id"]: dict(nombre=c["nombre"], descriptores=c["descriptores"], registrado=c["rostro_actualizado"])
+        for c in respuesta["conductores"]
+    }, ruta)
+    almacen.guardar_ajuste(db, "rostros_version", version)
+    return True

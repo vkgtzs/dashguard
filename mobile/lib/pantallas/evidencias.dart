@@ -17,118 +17,42 @@ class PantallaEvidencias extends StatefulWidget {
 }
 
 class _PantallaEvidenciasState extends State<PantallaEvidencias> {
-  final _evidencias = <Evidencia>[];
   Map<String, String> _nombres = {};
-  bool _cargando = true;
-  bool _hayMas = false;
-  Object? _error;
 
-  @override
-  void initState() {
-    super.initState();
-    _recargar();
-  }
-
-  Future<void> _recargar() async {
-    setState(() {
-      _cargando = true;
-      _error = null;
-    });
-    try {
-      final d = widget.dispositivo;
-      final nombres = d != null ? {d.id: d.nombre} : await nombresVehiculos();
-      final pagina = await obtenerEvidencias(dispositivoId: d?.id);
-      if (!mounted) return;
-      setState(() {
-        _nombres = nombres;
-        _evidencias
-          ..clear()
-          ..addAll(pagina.evidencias);
-        _hayMas = pagina.hayMas;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _error = e);
-    } finally {
-      if (mounted) setState(() => _cargando = false);
-    }
-  }
-
-  Future<void> _cargarMas() async {
-    setState(() => _cargando = true);
-    try {
-      final pagina = await obtenerEvidencias(
-          dispositivoId: widget.dispositivo?.id, antes: _evidencias.last.fecha);
-      if (!mounted) return;
-      final vistas = {for (final e in _evidencias) e.id};
-      setState(() {
-        _evidencias.addAll(pagina.evidencias.where((e) => !vistas.contains(e.id)));
-        _hayMas = pagina.hayMas;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    } finally {
-      if (mounted) setState(() => _cargando = false);
-    }
+  Future<Pagina<Evidencia>> _cargar(DateTime? antes) async {
+    final d = widget.dispositivo;
+    if (antes == null) _nombres = d != null ? {d.id: d.nombre} : await nombresVehiculos();
+    return obtenerEvidencias(dispositivoId: d?.id, antes: antes);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null && _evidencias.isEmpty) {
-      return MensajeError(error: _error, alReintentar: _recargar);
-    }
-    if (_cargando && _evidencias.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
     final general = widget.dispositivo == null;
-    return RefreshIndicator(
-      onRefresh: _recargar,
-      child: _evidencias.isEmpty
-          ? ListView(
-              children: const [
-                SizedBox(height: 120),
-                Center(child: Text('Todavía no hay fotos ni videos')),
-              ],
-            )
-          : ListView.builder(
-              // espacio abajo para que el boton Capturar no tape el ultimo elemento
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
-              itemCount: _evidencias.length + (_hayMas ? 1 : 0),
-              itemBuilder: (context, i) {
-                if (i == _evidencias.length) {
-                  return Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Center(
-                      child: _cargando
-                          ? const CircularProgressIndicator()
-                          : OutlinedButton.icon(
-                              onPressed: _cargarMas,
-                              icon: const Icon(Icons.expand_more),
-                              label: const Text('Cargar más'),
-                            ),
-                    ),
-                  );
-                }
-                final e = _evidencias[i];
-                final vehiculo = _nombres[e.dispositivoId] ?? e.dispositivoId;
-                return Card(
-                  child: ListTile(
-                    leading: Icon(iconoEvidencia(e.tipo)),
-                    title: Text('${textoEvidencia(e.tipo)} · ${fechaHora(e.fecha)}'),
-                    subtitle: Text([if (general) vehiculo, tamano(e.bytes)]
-                        .whereType<String>()
-                        .where((t) => t.isNotEmpty)
-                        .join(' · ')),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => PantallaEvidencia(evidencia: e, nombreVehiculo: vehiculo),
-                      ),
-                    ),
-                  ),
-                );
-              },
+    return ListaPaginada<Evidencia>(
+      cargar: _cargar,
+      fecha: (e) => e.fecha,
+      vacio: 'Todavía no hay fotos ni videos',
+      // espacio para que el boton Capturar no tape el ultimo elemento
+      espacioFinal: 88,
+      elemento: (context, e) {
+        final vehiculo = _nombres[e.dispositivoId] ?? e.dispositivoId;
+        return Card(
+          child: ListTile(
+            leading: Icon(iconoEvidencia(e.tipo)),
+            title: Text('${textoEvidencia(e.tipo)} · ${fechaHora(e.fecha)}'),
+            subtitle: Text([if (general) vehiculo, tamano(e.bytes)]
+                .whereType<String>()
+                .where((t) => t.isNotEmpty)
+                .join(' · ')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => PantallaEvidencia(evidencia: e, nombreVehiculo: vehiculo),
+              ),
             ),
+          ),
+        );
+      },
     );
   }
 }

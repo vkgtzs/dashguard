@@ -9,6 +9,7 @@ Resultados posibles:
 - no_reconocido: varios cuadros con rostro util y ninguno se parece a un conductor.
 - no_concluyente: sin rostro util, poca luz, rostro pequeno o comparacion dudosa.
 """
+import itertools
 import json
 import math
 import time
@@ -28,6 +29,10 @@ ANCHO_DETECCION = 320     # YuNet busca la cara en una copia reducida, mucho mas
 # Pendiente calibrar con personas registradas y no registradas.
 UMBRAL_AUTORIZADO = 0.363
 UMBRAL_DESCONOCIDO = 0.25
+MUESTRAS_REGISTRO = 8
+SEGUNDOS_REGISTRO = 60
+PAUSA_ENTRE_MUESTRAS_S = 0.8
+CONSISTENCIA_MINIMA = 0.5  # similitud media entre muestras de la misma persona
 CUADROS_AUTORIZADO = 3
 CUADROS_DESCONOCIDO = 5
 SEGUNDOS_MAXIMOS = 30
@@ -158,3 +163,40 @@ def verificar_en_camara(ruta_conductores=CONDUCTORES):
     rostros = Rostros()
     with camara.cuadros() as obtener_cuadro:
         return verificar(rostros, conductores, obtener_cuadro)
+
+
+def consistencia(descriptores):
+    pares = [similitud(a, b) for a, b in itertools.combinations(descriptores, 2)]
+    return sum(pares) / len(pares) if pares else 0.0
+
+
+def capturar_muestras(muestras=MUESTRAS_REGISTRO, segundos=SEGUNDOS_REGISTRO, aviso=print):
+    """Toma varias muestras del rostro frente a la camara para registrarlo.
+
+    Lanza RuntimeError con un mensaje claro si no se logra un registro confiable.
+    """
+    import camara
+
+    modelo = Rostros()
+    descriptores = []
+    inicio = time.monotonic()
+    with camara.cuadros() as obtener_cuadro:
+        while len(descriptores) < muestras and time.monotonic() - inicio < segundos:
+            imagen = obtener_cuadro()
+            cara, motivo = modelo.cara_principal(imagen)
+            if cara is None:
+                aviso("   " + motivo.replace("_", " "))
+                time.sleep(0.3)
+                continue
+            descriptores.append(modelo.descriptor(imagen, cara))
+            aviso(f"   muestra {len(descriptores)}/{muestras} (confianza {cara[14]:.2f})")
+            time.sleep(PAUSA_ENTRE_MUESTRAS_S)
+    if len(descriptores) < muestras:
+        raise RuntimeError(f"solo se obtuvieron {len(descriptores)} de {muestras} muestras; "
+                           "revisa la luz y que el rostro este frente a la camara")
+    valor = consistencia(descriptores)
+    aviso(f"Consistencia entre muestras: {valor:.3f}")
+    if valor < CONSISTENCIA_MINIMA:
+        raise RuntimeError("las muestras no parecen de la misma persona; "
+                           "repite con un solo rostro frente a la camara")
+    return descriptores

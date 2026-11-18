@@ -20,8 +20,9 @@ ARCHIVO_YUNET = "face_detection_yunet_2023mar.onnx"
 ARCHIVO_SFACE = "face_recognition_sface_2021dec.onnx"
 CONDUCTORES = Path.home() / "dashguard" / "rostros" / "conductores.json"
 
-CONFIANZA_DETECCION = 0.9
-LADO_MINIMO_PX = 60
+CONFIANZA_DETECCION = 0.8   # la imagen reducida baja un poco la confianza de YuNet
+LADO_MINIMO_PX = 60       # medido en la imagen original
+ANCHO_DETECCION = 320     # YuNet busca la cara en una copia reducida, mucho mas rapida
 # SFace recomienda 0.363 de coseno para "misma persona". Debajo de 0.25 se
 # considera otra persona; entre ambos valores la comparacion es dudosa.
 # Pendiente calibrar con personas registradas y no registradas.
@@ -45,15 +46,24 @@ class Rostros:
         self.detector = cv2.FaceDetectorYN.create(
             str(carpeta / ARCHIVO_YUNET), "", (320, 320), CONFIANZA_DETECCION, 0.3, 5000)
         self.reconocedor = cv2.FaceRecognizerSF.create(str(carpeta / ARCHIVO_SFACE), "")
+        self._cv2 = cv2
 
     def cara_principal(self, imagen):
-        """Cara mas grande de la imagen. Devuelve (cara, None) o (None, motivo)."""
+        """Cara mas grande de la imagen. Devuelve (cara, None) o (None, motivo).
+
+        Las coordenadas se regresan en la escala de la imagen original, que es
+        la que usa SFace para alinear y recortar la cara.
+        """
         alto, ancho = imagen.shape[:2]
-        self.detector.setInputSize((ancho, alto))
-        _, caras = self.detector.detect(imagen)
+        escala = min(1.0, ANCHO_DETECCION / ancho)
+        reducida = imagen if escala == 1.0 else self._cv2.resize(
+            imagen, (round(ancho * escala), round(alto * escala)), interpolation=self._cv2.INTER_AREA)
+        self.detector.setInputSize((reducida.shape[1], reducida.shape[0]))
+        _, caras = self.detector.detect(reducida)
         if caras is None or len(caras) == 0:
             return None, "sin_rostro"
-        cara = max(caras, key=lambda c: c[2] * c[3])
+        cara = max(caras, key=lambda c: c[2] * c[3]).copy()
+        cara[:14] /= escala  # caja y 5 puntos de referencia; el indice 14 es la confianza
         if min(cara[2], cara[3]) < LADO_MINIMO_PX:
             return None, "rostro_pequeno"
         return cara, None

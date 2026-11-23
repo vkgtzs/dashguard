@@ -76,5 +76,21 @@ class PruebasRecorrido(unittest.TestCase):
         self.assertTrue(json.loads(fila[0])["valido"])
 
 
+class PruebasVelocidadConfiable(unittest.TestCase):
+    def test_solo_con_buena_senal(self):
+        self.assertEqual(dashguard.velocidad_confiable(lectura(32.5, 9.0)), 9.0)
+        self.assertIsNone(dashguard.velocidad_confiable(lectura(32.5, 9.0, satelites=4)))
+        self.assertIsNone(dashguard.velocidad_confiable(lectura(32.5, 9.0, hdop=4.0)))
+        self.assertIsNone(dashguard.velocidad_confiable(dict(valido=False)))
+
+    def test_deriva_en_casa_no_inicia_recorrido(self):
+        from imu import DetectorMovimiento
+        d = DetectorMovimiento(velocidad_min_kmh=dashguard.VELOCIDAD_MOVIMIENTO_KMH, segundos_inicio=3)
+        quieto = dict(imu_valida=True, movimiento=False)
+        eventos = [d.actualizar(quieto, dashguard.velocidad_confiable(lectura(32.5, 6.5)), t * 0.5)
+                   for t in range(20)]
+        self.assertNotIn("inicio", eventos)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -58,6 +58,9 @@ SALTOS_PARA_REINICIAR = 3            # tras varios saltos seguidos, la posicion 
 DISTANCIA_MINIMA_VALIDA_M = 300
 VELOCIDAD_EN_MARCHA_KMH = 10
 SEGUNDOS_EN_MARCHA_MINIMOS = 60
+# La velocidad del GPS solo cuenta como movimiento con buena senal: bajo techo puede
+# marcar 5-10 km/h estando quieto
+VELOCIDAD_MOVIMIENTO_KMH = 8
 MAX_BYTES_EVIDENCIA = 10 * 1024 * 1024
 DIAS_EVIDENCIA_LOCAL = 3
 
@@ -169,6 +172,14 @@ class Recorrido:
             log(f"Recorrido sin viaje real ({self.distancia_m:.0f} m, "
                 f"{self.segundos_en_marcha:.0f} s en marcha): se marca como no valido")
         return terminado
+
+
+def velocidad_confiable(lectura):
+    """Velocidad del GPS solo si la senal es buena; None si no se debe usar."""
+    if (not lectura["valido"] or lectura["satelites"] < SATELITES_MINIMOS
+            or lectura["hdop"] > HDOP_MAXIMO_DISTANCIA):
+        return None
+    return lectura["velocidad_kmh"]
 
 
 def posicion_actual(estado_gps):
@@ -345,7 +356,7 @@ def main():
     almacen.usar_hora_gps(estado_gps.hora_utc)
     reloj_revisado = False
     recorrido = Recorrido(db)
-    movimiento = DetectorMovimiento()
+    movimiento = DetectorMovimiento(velocidad_min_kmh=VELOCIDAD_MOVIMIENTO_KMH)
     exceso = DetectorExceso()
     esp32, bus, fuente = None, None, None
     if USAR_ESP32:
@@ -377,7 +388,8 @@ def main():
                 else:
                     log("Reloj del sistema coincide con el GPS")
             muestra = fuente.leer()
-            evento = movimiento.actualizar(muestra, lectura["velocidad_kmh"], ahora)
+            velocidad = velocidad_confiable(lectura)
+            evento = movimiento.actualizar(muestra, velocidad, ahora)
 
             if evento == "inicio":
                 recorrido.iniciar()
@@ -401,7 +413,7 @@ def main():
                     log(f"Alerta: exceso de velocidad {exceso.maxima_kmh:.0f} km/h (limite {limite})")
                     sincronizar_ya.set()
 
-            if esp32 and apagado.actualizar(movimiento.hay_movimiento(muestra, lectura["velocidad_kmh"]),
+            if esp32 and apagado.actualizar(movimiento.hay_movimiento(muestra, velocidad),
                                             recorrido.id is not None, ahora):
                 if NO_APAGAR.exists():
                     apagado = energia.ApagadoAutomatico(apagado.segundos)

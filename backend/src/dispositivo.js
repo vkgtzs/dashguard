@@ -6,6 +6,7 @@ const { validarRegistro, UUID, SHA256 } = require('./validar');
 const BUCKET = 'dashguard-evidencias';
 const EXTENSION = { 'image/jpeg': 'jpg', 'video/mp4': 'mp4' };
 const SEGUNDOS_VIGENCIA_COMANDO = 120;
+const DISTANCIA_MINIMA_VALIDA_M = 300; // igual que en la Raspberry
 
 const digest = x => crypto.createHash('sha256').update(x).digest('hex');
 const rutaArchivo = (dispositivo, id, tipo) => `${dispositivo}/${id}.${tipo === 'foto' ? 'jpg' : 'mp4'}`;
@@ -44,8 +45,9 @@ async function aplicar(supabase, dispositivo, { id, tipo, datos: d }) {
     }
 
     case 'sesion_fin': {
-      const cierre = { fin: d.fecha, distancia_m: d.distancia_m };
-      if (d.valido !== null) cierre.valido = d.valido;
+      // Una Raspberry con la version anterior no califica el recorrido: se decide por distancia
+      const cierre = { fin: d.fecha, distancia_m: d.distancia_m,
+                       valido: d.valido ?? d.distancia_m >= DISTANCIA_MINIMA_VALIDA_M };
       return datos(await supabase.from('sesiones')
         .update(cierre)
         .eq('id', d.sesion_id).eq('dispositivo_id', dispositivo.id));

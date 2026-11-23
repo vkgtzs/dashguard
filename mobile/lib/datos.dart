@@ -15,10 +15,14 @@ Future<List<Dispositivo>> obtenerDispositivos() async {
   ];
 }
 
-/// Recorridos de un vehiculo, del mas reciente al mas antiguo
-Future<Pagina<Sesion>> obtenerSesiones(String dispositivoId, {DateTime? antes}) =>
+/// Recorridos de un vehiculo, del mas reciente al mas antiguo.
+/// Sin incluirNoValidos solo trae los que fueron un viaje real.
+Future<Pagina<Sesion>> obtenerSesiones(String dispositivoId,
+        {DateTime? antes, bool incluirNoValidos = false}) =>
     _pagina('/api/sesiones', 'sesiones', Sesion.fromJson,
-        dispositivoId: dispositivoId, antes: antes);
+        dispositivoId: dispositivoId,
+        antes: antes,
+        extra: {if (incluirNoValidos) 'incluir_no_validos': '1'});
 
 Future<List<Punto>> obtenerPuntos(String sesionId) async {
   final json = await _llamar('GET', '/api/sesiones/$sesionId');
@@ -119,10 +123,11 @@ Future<Comando> solicitarRegistroRostro(String dispositivoId, String conductorId
 
 /// Pide una pagina al backend; antes indica desde donde continuar
 Future<Pagina<T>> _pagina<T>(String ruta, String campo, T Function(Map<String, dynamic>) leer,
-    {String? dispositivoId, DateTime? antes}) async {
+    {String? dispositivoId, DateTime? antes, Map<String, String> extra = const {}}) async {
   final consulta = {
     'dispositivo_id': ?dispositivoId,
     if (antes != null) 'antes': antes.toUtc().toIso8601String(),
+    ...extra,
   };
   final json = await _llamar(
       'GET', Uri(path: ruta, queryParameters: consulta.isEmpty ? null : consulta).toString());

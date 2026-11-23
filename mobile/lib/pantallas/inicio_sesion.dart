@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../sesion.dart';
+import 'cuenta.dart';
 
 /// Pantalla de acceso del supervisor
 class PantallaInicioSesion extends StatefulWidget {
@@ -42,13 +43,31 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
         _cargando = false;
         _error = e.mensaje;
       });
+      if (e.codigo == 'email_not_confirmed') await _confirmarCorreo();
     }
+  }
+
+  /// La cuenta existe pero falta confirmar el correo: se manda un codigo nuevo
+  Future<void> _confirmarCorreo() async {
+    final correo = _correo.text.trim();
+    try {
+      await reenviarCodigoRegistro(correo);
+    } on ErrorApp {
+      // aun sin codigo nuevo puede usar el que ya le llego
+    }
+    if (!mounted) return;
+    setState(() => _error = null);
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PantallaVerificarCorreo(correo: correo),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
     return Scaffold(
+      // blanco para que combine con el fondo del logo
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -58,21 +77,17 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.shield_outlined, size: 64, color: tema.colorScheme.primary),
-                  const SizedBox(height: 12),
-                  Text('DashGuard', textAlign: TextAlign.center, style: tema.textTheme.headlineMedium),
-                  const SizedBox(height: 4),
-                  const Text('Acceso del supervisor', textAlign: TextAlign.center),
+                  Image.asset('assets/logo/logo_completo.png', height: 170, semanticLabel: 'DashGuard'),
+                  const SizedBox(height: 16),
+                  Text('Acceso del supervisor',
+                      textAlign: TextAlign.center, style: tema.textTheme.titleMedium),
                   const SizedBox(height: 32),
                   TextField(
                     controller: _correo,
                     enabled: !_cargando,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Correo',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: 'Correo'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -81,10 +96,7 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
                     obscureText: true,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _entrar(),
-                    decoration: const InputDecoration(
-                      labelText: 'Contraseña',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: 'Contraseña'),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 16),
@@ -109,6 +121,29 @@ class _PantallaInicioSesionState extends State<PantallaInicioSesion> {
                       style: tema.textTheme.bodySmall,
                     ),
                   ],
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _cargando
+                        ? null
+                        : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  PantallaRecuperarContrasena(correoInicial: _correo.text.trim()),
+                            )),
+                    child: const Text('¿Olvidaste tu contraseña?'),
+                  ),
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  const Text('¿Todavía no tienes cuenta?', textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: _cargando
+                        ? null
+                        : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) => const PantallaCrearCuenta(),
+                            )),
+                    child: const Text('Crear cuenta'),
+                  ),
                 ],
               ),
             ),

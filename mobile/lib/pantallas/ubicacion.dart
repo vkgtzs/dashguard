@@ -45,7 +45,7 @@ class _PantallaUbicacionState extends State<PantallaUbicacion> {
                   ListTile(
                     leading: Icon(
                       d.enRecorrido ? Icons.route : Icons.local_parking,
-                      color: d.enRecorrido ? const Color(0xFF16834A) : esquema.outline,
+                      color: d.enRecorrido ? const Color(0xFF00753F) : esquema.outline,
                     ),
                     title: Text(d.enRecorrido ? 'En recorrido' : 'Detenido'),
                     subtitle: Text(p == null

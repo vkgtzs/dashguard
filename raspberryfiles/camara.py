@@ -19,7 +19,7 @@ BITRATE_VIDEO = 2_000_000
 SEGUNDOS_VIDEO = 10
 ESPERA_EXPOSICION_S = 1.5
 
-PIN_LED = 17  # GPIO17, pin fisico 11
+PIN_LED = 26  # GPIO26, pin fisico 37
 _led = None
 
 

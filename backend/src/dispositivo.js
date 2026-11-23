@@ -43,10 +43,13 @@ async function aplicar(supabase, dispositivo, { id, tipo, datos: d }) {
         .eq('id', d.sesion_id).eq('dispositivo_id', dispositivo.id));
     }
 
-    case 'sesion_fin':
+    case 'sesion_fin': {
+      const cierre = { fin: d.fecha, distancia_m: d.distancia_m };
+      if (d.valido !== null) cierre.valido = d.valido;
       return datos(await supabase.from('sesiones')
-        .update({ fin: d.fecha, distancia_m: d.distancia_m })
+        .update(cierre)
         .eq('id', d.sesion_id).eq('dispositivo_id', dispositivo.id));
+    }
 
     case 'punto':
       return datos(await insertar('puntos', { id, dispositivo_id: dispositivo.id, ...d }));

@@ -11,7 +11,7 @@ const saltoMaximo = Duration(seconds: 30);
 
 const _colorRuta = Color(0xFF175FA6);
 const _colorExceso = Color(0xFFE5484D);
-const _colorInicio = Color(0xFF16834A);
+const _colorInicio = Color(0xFF00753F);
 const _colorFin = Color(0xFFC96816);
 
 /// Divide los puntos en tramos continuos para dibujar una línea por tramo.

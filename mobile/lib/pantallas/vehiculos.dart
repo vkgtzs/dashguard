@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../datos.dart';
 import '../formato.dart';
 import '../modelos.dart';
+import '../tema.dart';
 import 'comunes.dart';
 import 'vehiculo.dart';
 
@@ -55,15 +56,16 @@ class _PantallaVehiculosState extends State<PantallaVehiculos> {
                     final d = dispositivos[i];
                     return Card(
                       child: ListTile(
-                        leading: Icon(
-                          Icons.directions_car,
-                          color: d.enRecorrido ? const Color(0xFF16834A) : null,
+                        leading: CircleAvatar(
+                          backgroundColor: d.enRecorrido ? verdeDashGuard : const Color(0xFFE9EDEA),
+                          child: Icon(Icons.directions_car,
+                              color: d.enRecorrido ? Colors.white : textoSecundario),
                         ),
                         title: Text(d.nombre),
                         subtitle: Text(
                           '${d.enRecorrido ? 'En recorrido' : 'Detenido'} · '
                           '${distancia(d.distanciaTotalM)} · límite ${d.limiteVelocidadKmh} km/h\n'
-                          'Última conexión: ${haceCuanto(d.vistoEn)}',
+                          '${estadoConexion(d.vistoEn)}',
                         ),
                         isThreeLine: true,
                         trailing: const Icon(Icons.chevron_right),

@@ -32,6 +32,14 @@ String haceCuanto(DateTime? fecha) {
   return 'hace ${d.inDays} d';
 }
 
+/// La Pi consulta el servidor cada 10 s mientras esta encendida y con internet,
+/// asi que si no se ha comunicado en un minuto esta apagada o sin conexion
+String estadoConexion(DateTime? vistoEn) {
+  if (vistoEn == null) return 'Nunca se ha conectado';
+  if (DateTime.now().difference(vistoEn).inSeconds < 60) return 'En línea';
+  return 'Sin conexión desde ${haceCuanto(vistoEn)}';
+}
+
 String textoVerificacion(String? verificacion) => switch (verificacion) {
       'autorizado' => 'Conductor autorizado',
       'no_reconocido' => 'Conductor no reconocido',
@@ -47,7 +55,7 @@ IconData iconoVerificacion(String? verificacion) => switch (verificacion) {
     };
 
 Color colorVerificacion(String? verificacion) => switch (verificacion) {
-      'autorizado' => const Color(0xFF16834A),
+      'autorizado' => const Color(0xFF00753F),
       'no_reconocido' => const Color(0xFFB3261E),
       'no_concluyente' => const Color(0xFFC96816),
       _ => const Color(0xFF757575),

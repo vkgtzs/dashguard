@@ -10,8 +10,34 @@ TIPOS = ("sesion_inicio", "verificacion", "sesion_fin", "punto",
          "alerta", "evidencia", "comando_fallido", "rostro")
 
 
+# La Raspberry no tiene reloj con bateria: si arranca sin internet, su hora puede estar
+# atrasada horas o dias. Cuando hay hora del GPS y el reloj del sistema se aleja de ella,
+# se usa la del GPS para todas las fechas.
+DESFASE_MAXIMO_S = 2
+_hora_gps = None
+
+
+def usar_hora_gps(fuente):
+    """fuente: funcion que devuelve segundos UTC segun el GPS, o None si aun no hay."""
+    global _hora_gps
+    _hora_gps = fuente
+
+
+def desfase_reloj():
+    """Segundos que el reloj del sistema esta adelantado (negativo: atrasado) respecto al GPS."""
+    gps = _hora_gps() if _hora_gps else None
+    return None if gps is None else time.time() - gps
+
+
+def ahora_epoch():
+    desfase = desfase_reloj()
+    if desfase is not None and abs(desfase) > DESFASE_MAXIMO_S:
+        return time.time() - desfase
+    return time.time()
+
+
 def ahora_utc():
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ahora_epoch()))
 
 
 def sha_archivo(ruta):

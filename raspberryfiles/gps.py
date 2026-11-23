@@ -1,9 +1,13 @@
 """Lectura del GPS NEO-6M (sentencias NMEA GGA y RMC)."""
+import calendar
 import math
 import threading
 import time
 
 CADUCIDAD_S = 10
+# Algunos NEO-6M con firmware viejo reportan fechas de hace ~20 anos (reinicio de semana GPS);
+# una fecha anterior a esta se descarta.
+ANIO_MINIMO_GPS = 2025
 RADIO_TIERRA_M = 6371008.8
 
 
@@ -54,6 +58,18 @@ def distancia_m(lat1, lon1, lat2, lon2):
     return 2 * RADIO_TIERRA_M * math.asin(math.sqrt(a))
 
 
+def hora_rmc(hora, fecha):
+    """Segundos UTC desde 1970 a partir de hhmmss.ss y ddmmaa de la sentencia RMC."""
+    if len(hora) < 6 or len(fecha) != 6:
+        raise ValueError("Hora o fecha incompleta")
+    dia, mes, anio = int(fecha[0:2]), int(fecha[2:4]), 2000 + int(fecha[4:6])
+    horas, minutos, segundos = int(hora[0:2]), int(hora[2:4]), _numero(hora[4:])
+    if anio < ANIO_MINIMO_GPS or not (1 <= mes <= 12 and 1 <= dia <= 31 and horas < 24
+                                      and minutos < 60 and 0 <= segundos < 61):
+        raise ValueError("Hora GPS invalida")
+    return calendar.timegm((anio, mes, dia, horas, minutos, 0, 0, 0, 0)) + segundos
+
+
 class EstadoGPS:
 
     def __init__(self, reloj=time.monotonic):
@@ -61,6 +77,7 @@ class EstadoGPS:
         self._candado = threading.Lock()
         self._posicion = None   # (instante, latitud, longitud, satelites, hdop)
         self._velocidad = None  # (instante, km/h)
+        self._hora = None       # (instante, segundos UTC segun el GPS)
 
     def procesar(self, linea):
         try:
@@ -82,6 +99,13 @@ class EstadoGPS:
             elif tipo == "RMC":
                 with self._candado:
                     self._velocidad = None
+                if campos[2] == "A":
+                    try:
+                        hora = hora_rmc(campos[1], campos[9])
+                        with self._candado:
+                            self._hora = (ahora, hora)
+                    except (ValueError, IndexError):
+                        pass
                 if campos[2] == "A" and campos[7]:
                     nudos = _numero(campos[7])
                     if nudos < 0:
@@ -90,6 +114,19 @@ class EstadoGPS:
                         self._velocidad = (ahora, nudos * 1.852)
         except (ValueError, IndexError):
             pass
+
+    def hora_utc(self):
+        """Hora UTC actual segun el GPS (segundos desde 1970), o None si nunca ha recibido una valida.
+
+        Se calcula con el reloj monotonico desde la ultima sentencia RMC, asi que no
+        depende del reloj del sistema aunque este cambie.
+        """
+        with self._candado:
+            hora = self._hora
+        if hora is None:
+            return None
+        instante, segundos = hora
+        return segundos + (self._reloj() - instante)
 
     def invalidar(self):
         with self._candado:

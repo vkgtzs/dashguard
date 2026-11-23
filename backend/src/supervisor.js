@@ -5,6 +5,29 @@ const { expirarComandos, datos, BUCKET } = require('./dispositivo');
 
 const PAGINA = 1000;      // maximo de filas por consulta en Supabase
 const PAGINA_LISTAS = 50; // filas por pagina en las listas de la app
+const DIAS_RECORRIDOS_NO_VALIDOS = 30; // despues se borran; sus alertas y evidencias se conservan
+const VALIDOS = 'valido.is.null,valido.eq.true'; // null: en curso o anterior a la calificacion
+
+// Borra recorridos no validos viejos y sus puntos. Antes desliga sus alertas y evidencias
+// para no perderlas (la base las borraria junto con el recorrido). Corre a lo mas una vez al dia.
+let ultimaLimpieza = 0;
+async function limpiarRecorridosNoValidos(supabase) {
+  if (Date.now() - ultimaLimpieza < 24 * 3600 * 1000) return;
+  ultimaLimpieza = Date.now();
+  const limite = new Date(Date.now() - DIAS_RECORRIDOS_NO_VALIDOS * 86400 * 1000).toISOString();
+  try {
+    const viejos = datos(await supabase.from('sesiones').select('id')
+      .eq('valido', false).lt('inicio', limite).limit(500)).map(s => s.id);
+    if (!viejos.length) return;
+    datos(await supabase.from('alertas').update({ sesion_id: null }).in('sesion_id', viejos));
+    datos(await supabase.from('evidencias').update({ sesion_id: null }).in('sesion_id', viejos));
+    datos(await supabase.from('sesiones').delete().in('id', viejos));
+    console.log(`Limpieza: ${viejos.length} recorridos no validos borrados`);
+  } catch (error) {
+    ultimaLimpieza = 0; // reintentar en la siguiente consulta
+    console.error('Limpieza de recorridos:', error.message || error);
+  }
+}
 
 async function todas(consulta) {
   const filas = [];
@@ -60,7 +83,7 @@ function rutasSupervisor(supabase) {
       const ultima = datos(await supabase.from('sesiones').select('fin').eq('dispositivo_id', d.id)
         .order('inicio', { ascending: false }).limit(1).maybeSingle());
       const sesiones = await todas((desde, hasta) => supabase.from('sesiones')
-        .select('distancia_m').eq('dispositivo_id', d.id).range(desde, hasta));
+        .select('distancia_m').eq('dispositivo_id', d.id).or(VALIDOS).range(desde, hasta));
       return {
         ...d,
         ultima_posicion: posicion,
@@ -70,6 +93,7 @@ function rutasSupervisor(supabase) {
       };
     }));
     res.json({ dispositivos: resumen });
+    limpiarRecorridosNoValidos(supabase);
   });
 
   r.patch('/dispositivos/:id', async (req, res) => {
@@ -82,20 +106,22 @@ function rutasSupervisor(supabase) {
   });
 
   // sesiones, por paginas del inicio mas reciente al mas antiguo
+  // Solo los recorridos validos, salvo con ?incluir_no_validos=1
   r.get('/sesiones', async (req, res) => {
     const filtro = pagina(req, res);
     if (!filtro) return;
     let consulta = supabase.from('sesiones')
-      .select('id,dispositivo_id,inicio,fin,verificacion,distancia_m,conductores(nombre)')
+      .select('id,dispositivo_id,inicio,fin,verificacion,distancia_m,valido,conductores(nombre)')
       .in('dispositivo_id', filtro.dispositivos)
       .order('inicio', { ascending: false }).order('id', { ascending: false }).limit(PAGINA_LISTAS);
+    if (req.query.incluir_no_validos !== '1') consulta = consulta.or(VALIDOS);
     if (filtro.antes) consulta = consulta.lt('inicio', filtro.antes);
     res.json({ sesiones: datos(await consulta), pagina: PAGINA_LISTAS });
   });
 
   r.get('/sesiones/:uuid', async (req, res) => {
     const sesion = datos(await supabase.from('sesiones')
-      .select('id,dispositivo_id,inicio,fin,verificacion,distancia_m,conductores(nombre)')
+      .select('id,dispositivo_id,inicio,fin,verificacion,distancia_m,valido,conductores(nombre)')
       .eq('id', req.params.uuid).in('dispositivo_id', req.dispositivos).maybeSingle());
     if (!sesion) return noEncontrado(res);
     const puntos = await todas((desde, hasta) => supabase.from('puntos')

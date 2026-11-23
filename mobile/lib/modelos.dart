@@ -61,6 +61,7 @@ class Sesion {
     this.verificacion,
     this.distanciaM,
     this.conductor,
+    this.valido,
   });
 
   final String id;
@@ -75,6 +76,9 @@ class Sesion {
   /// Nombre del conductor reconocido, si lo hubo.
   final String? conductor;
 
+  /// false si no hubo un viaje real (dispositivo movido sin viajar); null si esta en curso
+  final bool? valido;
+
   factory Sesion.fromJson(Map<String, dynamic> j) => Sesion(
         id: j['id'] as String,
         dispositivoId: j['dispositivo_id'] as String,
@@ -83,6 +87,7 @@ class Sesion {
         verificacion: j['verificacion'] as String?,
         distanciaM: (j['distancia_m'] as num?)?.toDouble(),
         conductor: (j['conductores'] as Map<String, dynamic>?)?['nombre'] as String?,
+        valido: j['valido'] as bool?,
       );
 }
 

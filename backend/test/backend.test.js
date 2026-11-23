@@ -166,3 +166,11 @@ test('supervisor: comandos y listas paginadas validan sus parametros', async () 
     assert.equal(typeof (await pendientes.json()).pendientes, 'number');
   });
 });
+
+test('sesion_fin: valido es opcional y debe ser booleano', () => {
+  const fin = extra => validarRegistro({ id: ID, tipo: 'sesion_fin',
+    datos: { sesion_id: SESION, fecha: FECHA, distancia_m: 120, ...extra } });
+  assert.equal(fin({}).datos.valido, null);
+  assert.equal(fin({ valido: false }).datos.valido, false);
+  assert.throws(() => fin({ valido: 'si' }), /valido/);
+});

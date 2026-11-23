@@ -89,6 +89,8 @@ class DetectorMovimiento:
     def hay_movimiento(self, muestra, velocidad_kmh):
         if velocidad_kmh is not None and velocidad_kmh >= self.velocidad_min_kmh:
             return True
+        if "movimiento" in muestra:  # ya decidido por el ESP32-C3
+            return bool(muestra["movimiento"])
         if not muestra.get("imu_valida"):
             return False
         giro = max(abs(muestra[eje]) for eje in ("gx_grados_s", "gy_grados_s", "gz_grados_s"))

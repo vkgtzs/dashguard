@@ -6,7 +6,7 @@ import '../modelos.dart';
 import '../sesion.dart';
 import 'comunes.dart';
 
-const _verde = Color(0xFF16834A);
+const _verde = Color(0xFF00753F);
 
 /// Conductores de la cuenta: agregar, ver si tienen rostro registrado y abrir su detalle
 class PantallaConductores extends StatefulWidget {
@@ -171,7 +171,7 @@ class _PantallaConductorState extends State<PantallaConductor> {
               ListTile(
                 leading: const Icon(Icons.directions_car),
                 title: Text(d.nombre),
-                subtitle: Text('Última conexión: ${haceCuanto(d.vistoEn)}'),
+                subtitle: Text(estadoConexion(d.vistoEn)),
                 onTap: () => Navigator.pop(contexto, d),
               ),
           ],

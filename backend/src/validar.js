@@ -44,11 +44,15 @@ const validadores = {
     return { sesion_id: uuid(d.sesion_id, 'sesion_id'), resultado: d.resultado, conductor_id: conductor };
   },
 
-  sesion_fin: d => ({
-    sesion_id: uuid(d.sesion_id, 'sesion_id'),
-    fecha: fecha(d.fecha),
-    distancia_m: numero(d.distancia_m, 'distancia_m', 0, 5e6),
-  }),
+  sesion_fin: d => {
+    if (d.valido != null && typeof d.valido !== 'boolean') throw Error('valido debe ser true o false');
+    return {
+      sesion_id: uuid(d.sesion_id, 'sesion_id'),
+      fecha: fecha(d.fecha),
+      distancia_m: numero(d.distancia_m, 'distancia_m', 0, 5e6),
+      valido: d.valido ?? null,  // null: la Raspberry aun no calificaba los recorridos
+    };
+  },
 
   punto: d => ({
     sesion_id: uuid(d.sesion_id, 'sesion_id'),

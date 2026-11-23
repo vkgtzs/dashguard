@@ -10,6 +10,7 @@ import 'pantallas/evidencias.dart';
 import 'pantallas/inicio_sesion.dart';
 import 'pantallas/vehiculos.dart';
 import 'sesion.dart';
+import 'tema.dart';
 
 void main() => runApp(const DashGuardApp());
 
@@ -21,11 +22,83 @@ class DashGuardApp extends StatelessWidget {
     return MaterialApp(
       title: 'DashGuard',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF175FA6)),
-      ),
-      home: const PantallaInicioSesion(),
+      theme: temaDashGuard(),
+      // Letras un poco mas grandes en toda la app, respetando la configuracion del telefono
+      builder: (context, child) {
+        final datos = MediaQuery.of(context);
+        return MediaQuery(
+          data: datos.copyWith(textScaler: TextScaler.linear(datos.textScaler.scale(1) * escalaTexto)),
+          child: child!,
+        );
+      },
+      home: const PantallaArranque(),
       routes: {'/inicio': (_) => const Inicio()},
+    );
+  }
+}
+
+/// Al abrir la app: si hay una sesion guardada entra directo, si no muestra el inicio de sesion
+class PantallaArranque extends StatefulWidget {
+  const PantallaArranque({super.key});
+
+  @override
+  State<PantallaArranque> createState() => _PantallaArranqueState();
+}
+
+class _PantallaArranqueState extends State<PantallaArranque> {
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _restaurar();
+  }
+
+  Future<void> _restaurar() async {
+    setState(() => _error = null);
+    try {
+      final conSesion = await restaurarSesion();
+      if (!mounted) return;
+      if (conSesion) {
+        Navigator.of(context).pushReplacementNamed('/inicio');
+      } else {
+        _irAlAcceso();
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = e);
+    }
+  }
+
+  void _irAlAcceso() => Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const PantallaInicioSesion()),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/logo/logo_completo.png', height: 170, semanticLabel: 'DashGuard'),
+                const SizedBox(height: 32),
+                if (_error == null)
+                  const CircularProgressIndicator()
+                else ...[
+                  Text('$_error', textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  FilledButton(onPressed: _restaurar, child: const Text('Reintentar')),
+                  TextButton(onPressed: _irAlAcceso, child: const Text('Entrar con otra cuenta')),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -77,15 +150,24 @@ class _InicioState extends State<Inicio> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titulos[_indice]),
+        title: Row(
+          children: [
+            const EscudoBarra(),
+            const SizedBox(width: 12),
+            Text(_titulos[_indice]),
+          ],
+        ),
+        bottom: lineaAmarilla,
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              cerrarSesion();
-              Navigator.of(context).pushReplacement(
+            onPressed: () async {
+              await cerrarSesion();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute<void>(builder: (_) => const PantallaInicioSesion()),
+                (_) => false,
               );
             },
           ),

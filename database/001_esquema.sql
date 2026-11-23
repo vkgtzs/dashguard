@@ -30,6 +30,7 @@ CREATE TABLE public.sesiones (
     verificacion text CHECK (verificacion IN ('autorizado', 'no_reconocido', 'no_concluyente')),
     conductor_id uuid REFERENCES public.conductores(id) ON DELETE SET NULL,
     distancia_m double precision CHECK (distancia_m IS NULL OR distancia_m >= 0),
+    valido boolean,
     recibido_en timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, dispositivo_id)
 );

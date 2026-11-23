@@ -8,3 +8,7 @@ dispositivo.json
 *.sqlite3-wal
 *.sqlite3-shm
 pi-actual/
+
+# ESP-IDF: archivos generados al compilar
+esp32/*/build/
+esp32/*/sdkconfig.old

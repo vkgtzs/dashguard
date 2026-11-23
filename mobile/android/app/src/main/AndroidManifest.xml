@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- La app consulta el backend de DashGuard y Supabase -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="dashguard"
+        android:label="DashGuard"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

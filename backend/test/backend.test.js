@@ -174,3 +174,14 @@ test('sesion_fin: valido es opcional y debe ser booleano', () => {
   assert.equal(fin({ valido: false }).datos.valido, false);
   assert.throws(() => fin({ valido: 'si' }), /valido/);
 });
+
+test('posicion estacionado y alerta de bateria baja', () => {
+  const p = validarRegistro({ id: ID, tipo: 'posicion', datos: { fecha: FECHA, latitud: 32.5, longitud: -117 } });
+  assert.deepEqual(p.datos, { fecha: FECHA, latitud: 32.5, longitud: -117, velocidad_kmh: null });
+  assert.throws(() => validarRegistro({ id: ID, tipo: 'posicion', datos: { fecha: FECHA, latitud: 99, longitud: 0 } }),
+    /latitud/);
+  const a = validarRegistro({ id: ID, tipo: 'alerta',
+    datos: { tipo: 'bateria_baja', fecha: FECHA, detalle: { porcentaje: 19 } } });
+  assert.equal(a.datos.tipo, 'bateria_baja');
+  assert.equal(a.datos.sesion_id, null);
+});

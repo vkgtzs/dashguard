@@ -94,3 +94,13 @@ class PruebasVelocidadConfiable(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PruebasSenalBuena(unittest.TestCase):
+    def test_posicion_estacionado_solo_con_buena_senal(self):
+        from dashguard import senal_buena
+        base = dict(valido=True, latitud=32.5, longitud=-117.0, satelites=7, hdop=1.2, velocidad_kmh=None)
+        self.assertTrue(senal_buena(base))
+        self.assertFalse(senal_buena({**base, "satelites": 3}))
+        self.assertFalse(senal_buena({**base, "hdop": 5}))
+        self.assertFalse(senal_buena({**base, "valido": False, "satelites": None, "hdop": None}))

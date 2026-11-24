@@ -64,8 +64,17 @@ const validadores = {
     hdop: numeroOpcional(d.hdop, 'hdop', 0, 100),
   }),
 
+  // posicion del vehiculo fuera de un recorrido (estacionado)
+  posicion: d => ({
+    fecha: fecha(d.fecha),
+    latitud: numero(d.latitud, 'latitud', -90, 90),
+    longitud: numero(d.longitud, 'longitud', -180, 180),
+    velocidad_kmh: numeroOpcional(d.velocidad_kmh, 'velocidad_kmh', 0, 400),
+  }),
+
   alerta: d => {
-    if (!['conductor_no_reconocido', 'verificacion_no_concluyente', 'exceso_velocidad'].includes(d.tipo))
+    if (!['conductor_no_reconocido', 'verificacion_no_concluyente', 'exceso_velocidad', 'bateria_baja']
+      .includes(d.tipo))
       throw Error('tipo de alerta desconocido');
     const detalle = d.detalle ?? {};
     if (typeof detalle !== 'object' || Array.isArray(detalle) || JSON.stringify(detalle).length > 2000)

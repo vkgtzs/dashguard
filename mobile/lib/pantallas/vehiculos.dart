@@ -65,7 +65,8 @@ class _PantallaVehiculosState extends State<PantallaVehiculos> {
                         subtitle: Text(
                           '${d.enRecorrido ? 'En recorrido' : 'Detenido'} · '
                           '${distancia(d.distanciaTotalM)} · límite ${d.limiteVelocidadKmh} km/h\n'
-                          '${estadoConexion(d.vistoEn)}',
+                          '${estadoConexion(d.vistoEn)}'
+                          '${d.bateria == null ? '' : ' · ${textoBateria(d.bateria)}'}',
                         ),
                         isThreeLine: true,
                         trailing: const Icon(Icons.chevron_right),

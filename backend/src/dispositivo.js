@@ -56,6 +56,13 @@ async function aplicar(supabase, dispositivo, { id, tipo, datos: d }) {
     case 'punto':
       return datos(await insertar('puntos', { id, dispositivo_id: dispositivo.id, ...d }));
 
+    case 'posicion':
+      // solo reemplaza la posicion guardada si esta es mas reciente
+      return datos(await supabase.from('dispositivos')
+        .update({ posicion_latitud: d.latitud, posicion_longitud: d.longitud,
+                  posicion_velocidad_kmh: d.velocidad_kmh, posicion_fecha: d.fecha })
+        .eq('id', dispositivo.id).or(`posicion_fecha.is.null,posicion_fecha.lt."${d.fecha}"`));
+
     case 'alerta':
       return datos(await insertar('alertas', { id, dispositivo_id: dispositivo.id, ...d }));
 
@@ -165,7 +172,14 @@ function rutasDispositivo(supabase) {
       .eq('dispositivo_id', id).eq('estado', 'pendiente').order('creado_en'));
     const conductores = datos(await supabase.from('conductores').select('id,nombre,rostro_actualizado')
       .eq('supervisor_id', supervisor_id).eq('activo', true));
-    datos(await supabase.from('dispositivos').update({ visto_en: new Date().toISOString() }).eq('id', id));
+    const cambios = { visto_en: new Date().toISOString() };
+    const bateria = Number(req.query.bateria);
+    if (req.query.bateria != null && Number.isInteger(bateria) && bateria >= 0 && bateria <= 100) {
+      cambios.bateria_porcentaje = bateria;
+      cambios.bateria_cargando = req.query.cargando === '1';
+      cambios.bateria_fecha = cambios.visto_en;
+    }
+    datos(await supabase.from('dispositivos').update(cambios).eq('id', id));
     res.json({ limite_velocidad_kmh, conductores, comandos });
   });
 

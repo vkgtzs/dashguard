@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 
 TIPOS = ("sesion_inicio", "verificacion", "sesion_fin", "punto",
-         "alerta", "evidencia", "comando_fallido", "rostro")
+         "alerta", "evidencia", "comando_fallido", "rostro", "posicion")
 
 
 # La Raspberry no tiene reloj con bateria: si arranca sin internet, su hora puede estar

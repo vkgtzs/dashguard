@@ -76,6 +76,10 @@ class _PantallaAlertasState extends State<PantallaAlertas> {
     if (a.tipo == 'exceso_velocidad' && kmh is num) {
       return '${fechaHora(a.fecha)} · ${velocidad(kmh.toDouble())}';
     }
+    final porcentaje = a.detalle['porcentaje'];
+    if (a.tipo == 'bateria_baja' && porcentaje is num) {
+      return '${fechaHora(a.fecha)} · quedaba ${porcentaje.round()} %';
+    }
     return fechaHora(a.fecha);
   }
 }

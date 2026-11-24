@@ -75,18 +75,29 @@ function rutasSupervisor(supabase) {
   // dispositivos, con ubicacion actual, estado y kilometraje
   r.get('/dispositivos', async (req, res) => {
     const dispositivos = datos(await supabase.from('dispositivos')
-      .select('id,nombre,limite_velocidad_kmh,visto_en').eq('supervisor_id', req.usuario.id).order('nombre'));
-    const resumen = await Promise.all(dispositivos.map(async d => {
-      const posicion = datos(await supabase.from('puntos')
+      .select('id,nombre,limite_velocidad_kmh,visto_en,posicion_latitud,posicion_longitud,posicion_velocidad_kmh,' +
+              'posicion_fecha,bateria_porcentaje,bateria_cargando,bateria_fecha')
+      .eq('supervisor_id', req.usuario.id).order('nombre'));
+    const resumen = await Promise.all(dispositivos.map(async fila => {
+      const { posicion_latitud, posicion_longitud, posicion_velocidad_kmh, posicion_fecha,
+              bateria_porcentaje, bateria_cargando, bateria_fecha, ...d } = fila;
+      const enRuta = datos(await supabase.from('puntos')
         .select('fecha,latitud,longitud,velocidad_kmh').eq('dispositivo_id', d.id)
         .order('fecha', { ascending: false }).limit(1).maybeSingle());
       const ultima = datos(await supabase.from('sesiones').select('fin').eq('dispositivo_id', d.id)
         .order('inicio', { ascending: false }).limit(1).maybeSingle());
       const sesiones = await todas((desde, hasta) => supabase.from('sesiones')
         .select('distancia_m').eq('dispositivo_id', d.id).or(VALIDOS).range(desde, hasta));
+      // la posicion mas reciente: el ultimo punto de un recorrido o la reportada estacionado
+      const estacionado = posicion_fecha && { fecha: posicion_fecha, latitud: posicion_latitud,
+        longitud: posicion_longitud, velocidad_kmh: posicion_velocidad_kmh };
+      const posicion = !enRuta ? estacionado || null : !estacionado ? enRuta
+        : Date.parse(estacionado.fecha) > Date.parse(enRuta.fecha) ? estacionado : enRuta;
       return {
         ...d,
         ultima_posicion: posicion,
+        bateria: bateria_porcentaje == null ? null
+          : { porcentaje: bateria_porcentaje, cargando: Boolean(bateria_cargando), fecha: bateria_fecha },
         en_recorrido: Boolean(ultima && !ultima.fin),
         recorridos: sesiones.length,
         distancia_total_m: sesiones.reduce((total, s) => total + (s.distancia_m || 0), 0),

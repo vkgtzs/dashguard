@@ -1,5 +1,20 @@
 // Modelos con los mismos campos que devuelve el backend (rutas /api).
 
+/// Nivel de bateria del UPS que reporto la Raspberry por ultima vez
+class Bateria {
+  const Bateria({required this.porcentaje, required this.cargando, this.fecha});
+
+  final int porcentaje;
+  final bool cargando;
+  final DateTime? fecha;
+
+  factory Bateria.fromJson(Map<String, dynamic> j) => Bateria(
+        porcentaje: (j['porcentaje'] as num).toInt(),
+        cargando: j['cargando'] as bool? ?? false,
+        fecha: _fecha(j['fecha']),
+      );
+}
+
 class Dispositivo {
   const Dispositivo({
     required this.id,
@@ -10,6 +25,7 @@ class Dispositivo {
     this.enRecorrido = false,
     this.recorridos = 0,
     this.distanciaTotalM = 0,
+    this.bateria,
   });
 
   final String id;
@@ -27,6 +43,9 @@ class Dispositivo {
   /// Suma de la distancia de todos sus recorridos terminados
   final double distanciaTotalM;
 
+  /// null si la Raspberry nunca ha reportado bateria
+  final Bateria? bateria;
+
   Dispositivo conLimite(int limite) => Dispositivo(
         id: id,
         nombre: nombre,
@@ -36,6 +55,7 @@ class Dispositivo {
         enRecorrido: enRecorrido,
         recorridos: recorridos,
         distanciaTotalM: distanciaTotalM,
+        bateria: bateria,
       );
 
   factory Dispositivo.fromJson(Map<String, dynamic> j) => Dispositivo(
@@ -49,6 +69,7 @@ class Dispositivo {
         enRecorrido: j['en_recorrido'] as bool? ?? false,
         recorridos: (j['recorridos'] as num?)?.toInt() ?? 0,
         distanciaTotalM: (j['distancia_total_m'] as num?)?.toDouble() ?? 0,
+        bateria: j['bateria'] == null ? null : Bateria.fromJson(j['bateria'] as Map<String, dynamic>),
       );
 }
 

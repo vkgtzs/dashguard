@@ -50,6 +50,67 @@ class ApagadoAutomatico:
         return ahora - self._ultima_actividad >= self.segundos
 
 
+class Bateria:
+    """Lee el INA219 del UPS HAT. leer() devuelve None si no se puede leer."""
+
+    CORRIENTE_CARGA_MA = 20  # corriente positiva: entra a la bateria
+
+    def __init__(self):
+        from smbus import SMBus
+
+        self._bus = SMBus(1)
+
+    def leer(self):
+        import bateria
+
+        try:
+            voltaje, corriente_ma, porcentaje = bateria.leer(self._bus)
+        except OSError:
+            return None
+        return dict(porcentaje=round(porcentaje), voltaje=round(voltaje, 2),
+                    cargando=corriente_ma > self.CORRIENTE_CARGA_MA)
+
+    def cerrar(self):
+        self._bus.close()
+
+
+class VigilanteBateria:
+    """Decide la alerta y el apagado por bateria baja.
+
+    actualizar() devuelve:
+      "alerta"   la primera vez que baja de umbral_alerta sin cargador
+      "rearmar"  cuando se conecta el cargador o sube, para volver a avisar en la siguiente descarga
+      "apagar"   tras varias lecturas seguidas en umbral_apagado o menos sin cargador
+      None       en otro caso
+    Se piden varias lecturas seguidas porque el voltaje baja un momento con la carga
+    (camara, Wi-Fi) y una sola lectura baja no significa bateria agotada.
+    """
+
+    def __init__(self, umbral_alerta=20, umbral_apagado=10, lecturas=3, alerta_enviada=False):
+        self.umbral_alerta = umbral_alerta
+        self.umbral_apagado = umbral_apagado
+        self.lecturas = lecturas
+        self.alerta_enviada = alerta_enviada
+        self._bajas_alerta = 0
+        self._bajas_apagado = 0
+
+    def actualizar(self, porcentaje, cargando):
+        if cargando or porcentaje > self.umbral_alerta + 5:
+            self._bajas_alerta = self._bajas_apagado = 0
+            if self.alerta_enviada:
+                self.alerta_enviada = False
+                return "rearmar"
+            return None
+        self._bajas_alerta = self._bajas_alerta + 1 if porcentaje <= self.umbral_alerta else 0
+        self._bajas_apagado = self._bajas_apagado + 1 if porcentaje <= self.umbral_apagado else 0
+        if self._bajas_apagado >= self.lecturas:
+            return "apagar"
+        if self._bajas_alerta >= self.lecturas and not self.alerta_enviada:
+            self.alerta_enviada = True
+            return "alerta"
+        return None
+
+
 def apagar_raspberry():
     # Requiere la regla de sudo de /etc/sudoers.d/dashguard-apagado
     subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "poweroff"], check=True, timeout=30)

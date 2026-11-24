@@ -8,6 +8,13 @@ CREATE TABLE public.dispositivos (
     limite_velocidad_kmh integer NOT NULL DEFAULT 80
         CHECK (limite_velocidad_kmh BETWEEN 10 AND 200),
     visto_en timestamptz,
+    posicion_latitud double precision CHECK (posicion_latitud BETWEEN -90 AND 90),
+    posicion_longitud double precision CHECK (posicion_longitud BETWEEN -180 AND 180),
+    posicion_velocidad_kmh double precision,
+    posicion_fecha timestamptz,
+    bateria_porcentaje integer CHECK (bateria_porcentaje BETWEEN 0 AND 100),
+    bateria_cargando boolean,
+    bateria_fecha timestamptz,
     creado_en timestamptz NOT NULL DEFAULT now()
 );
 
@@ -73,7 +80,7 @@ CREATE TABLE public.alertas (
     dispositivo_id text NOT NULL REFERENCES public.dispositivos(id) ON DELETE CASCADE,
     sesion_id uuid,
     tipo text NOT NULL CHECK (tipo IN ('conductor_no_reconocido', 'verificacion_no_concluyente',
-                                    'exceso_velocidad')),
+                                    'exceso_velocidad', 'bateria_baja')),
     fecha timestamptz NOT NULL,
     latitud double precision CHECK (latitud BETWEEN -90 AND 90),
     longitud double precision CHECK (longitud BETWEEN -180 AND 180),

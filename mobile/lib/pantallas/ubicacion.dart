@@ -58,6 +58,13 @@ class _PantallaUbicacionState extends State<PantallaUbicacion> {
                     ),
                   ),
                   ListTile(
+                    leading: Icon(iconoBateria(d.bateria), color: colorBateria(d.bateria)),
+                    title: Text(textoBateria(d.bateria)),
+                    subtitle: d.bateria?.fecha == null
+                        ? null
+                        : Text('Reportada ${haceCuanto(d.bateria!.fecha)}'),
+                  ),
+                  ListTile(
                     leading: const Icon(Icons.speed),
                     title: Text('${distancia(d.distanciaTotalM)} recorridos en total'),
                     subtitle: Text('${d.recorridos} recorridos · '

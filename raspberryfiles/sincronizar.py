@@ -75,8 +75,11 @@ def una_vez(db, config, enviar=urlopen):
     return subir_archivos(db, config, enviar) + enviar_registros(db, config, enviar)
 
 
-def consultar_estado(db, config, enviar=urlopen):
-    estado = _peticion(config, "/dispositivo/estado", enviar=enviar)
+def consultar_estado(db, config, enviar=urlopen, bateria=None):
+    ruta = "/dispositivo/estado"
+    if bateria:  # el backend guarda el nivel para mostrarlo en la app
+        ruta += f"?bateria={bateria['porcentaje']}&cargando={int(bateria['cargando'])}"
+    estado = _peticion(config, ruta, enviar=enviar)
     almacen.guardar_ajuste(db, "limite_velocidad_kmh", estado["limite_velocidad_kmh"])
     almacen.guardar_ajuste(db, "conductores", estado["conductores"])
     return [c for c in estado["comandos"] if almacen.comando_es_nuevo(db, c["id"])]

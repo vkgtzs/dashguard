@@ -2,6 +2,8 @@
 
 import 'package:material_ui/material_ui.dart';
 
+import 'modelos.dart';
+
 String _dos(int n) => n.toString().padLeft(2, '0');
 
 /// 14/11/2026 08:05
@@ -65,6 +67,7 @@ String textoAlerta(String tipo) => switch (tipo) {
       'conductor_no_reconocido' => 'Conductor no reconocido',
       'verificacion_no_concluyente' => 'Verificación no concluyente',
       'exceso_velocidad' => 'Exceso de velocidad',
+      'bateria_baja' => 'Batería baja',
       _ => 'Alerta',
     };
 
@@ -72,6 +75,7 @@ IconData iconoAlerta(String tipo) => switch (tipo) {
       'conductor_no_reconocido' => Icons.gpp_bad_outlined,
       'verificacion_no_concluyente' => Icons.gpp_maybe_outlined,
       'exceso_velocidad' => Icons.speed,
+      'bateria_baja' => Icons.battery_alert,
       _ => Icons.warning_amber_outlined,
     };
 
@@ -79,6 +83,7 @@ Color colorAlerta(String tipo) => switch (tipo) {
       'conductor_no_reconocido' => const Color(0xFFB3261E),
       'verificacion_no_concluyente' => const Color(0xFFC96816),
       'exceso_velocidad' => const Color(0xFFC96816),
+      'bateria_baja' => const Color(0xFFC96816),
       _ => const Color(0xFF757575),
     };
 
@@ -95,3 +100,20 @@ String tamano(int? bytes) {
 
 String coordenadas(double latitud, double longitud) =>
     '${latitud.toStringAsFixed(5)}, ${longitud.toStringAsFixed(5)}';
+
+/// Batería 57 % · cargando
+String textoBateria(Bateria? b) {
+  if (b == null) return 'Batería sin datos';
+  return 'Batería ${b.porcentaje} %${b.cargando ? ' · cargando' : ''}';
+}
+
+IconData iconoBateria(Bateria? b) {
+  if (b == null) return Icons.battery_unknown;
+  if (b.cargando) return Icons.battery_charging_full;
+  if (b.porcentaje <= 20) return Icons.battery_alert;
+  return b.porcentaje >= 60 ? Icons.battery_full : Icons.battery_4_bar;
+}
+
+/// Rojo solo cuando esta baja y sin cargador; si no, gris
+Color colorBateria(Bateria? b) =>
+    b != null && !b.cargando && b.porcentaje <= 20 ? const Color(0xFFB3261E) : const Color(0xFF757575);

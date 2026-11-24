@@ -61,6 +61,10 @@ SEGUNDOS_EN_MARCHA_MINIMOS = 60
 # La velocidad del GPS solo cuenta como movimiento con buena senal: bajo techo puede
 # marcar 5-10 km/h estando quieto
 VELOCIDAD_MOVIMIENTO_KMH = 8
+SEGUNDOS_POSICION_ESTACIONADO = 300  # posicion fuera de recorrido, para ver donde quedo el vehiculo
+SEGUNDOS_BATERIA = 30
+BATERIA_ALERTA = 20                  # %, sin cargador: alerta en la app
+BATERIA_APAGADO = 10                 # %, sin cargador: cierra todo y se apaga
 MAX_BYTES_EVIDENCIA = 10 * 1024 * 1024
 DIAS_EVIDENCIA_LOCAL = 3
 
@@ -174,12 +178,14 @@ class Recorrido:
         return terminado
 
 
+def senal_buena(lectura):
+    return (lectura["valido"] and lectura["satelites"] >= SATELITES_MINIMOS
+            and lectura["hdop"] <= HDOP_MAXIMO_DISTANCIA)
+
+
 def velocidad_confiable(lectura):
     """Velocidad del GPS solo si la senal es buena; None si no se debe usar."""
-    if (not lectura["valido"] or lectura["satelites"] < SATELITES_MINIMOS
-            or lectura["hdop"] > HDOP_MAXIMO_DISTANCIA):
-        return None
-    return lectura["velocidad_kmh"]
+    return lectura["velocidad_kmh"] if senal_buena(lectura) else None
 
 
 def posicion_actual(estado_gps):
@@ -274,6 +280,9 @@ def limpiar_evidencias(db):
         Path(fila["ruta"]).unlink(missing_ok=True)
 
 
+bateria_actual = None  # ultima lectura del UPS; la escribe el ciclo principal y la envia hilo_red
+
+
 def hilo_red(config):
     db = almacen.abrir(DB)
     try:
@@ -288,7 +297,7 @@ def hilo_red(config):
             except Exception as error:
                 log("Sincronizacion pendiente:", error)
             try:
-                for comando in sincronizar.consultar_estado(db, config):
+                for comando in sincronizar.consultar_estado(db, config, bateria=bateria_actual):
                     log("Comando recibido:", comando["tipo"], comando["id"])
                     comandos.put(comando)
                 if sincronizar.sincronizar_rostros(db, config):
@@ -339,6 +348,7 @@ def probar_camara():
 
 
 def main():
+    global bateria_actual
     argumentos = argparse.ArgumentParser()
     argumentos.add_argument("--probar-camara", action="store_true",
                             help="toma una foto y un video de prueba y termina")
@@ -369,6 +379,14 @@ def main():
         fuente, bus = iniciar_imu()
     apagado = energia.ApagadoAutomatico(MINUTOS_SIN_MOVIMIENTO_PARA_APAGAR * 60)
     apagar = False
+    try:
+        medidor = energia.Bateria()
+    except Exception as error:
+        medidor = None
+        log("Sin lectura de bateria:", error)
+    vigilante = energia.VigilanteBateria(BATERIA_ALERTA, BATERIA_APAGADO,
+                                         alerta_enviada=almacen.leer_ajuste(db, "bateria_alerta_enviada", False))
+    ultima_bateria = ultima_posicion = None
 
     hilos = [threading.Thread(target=gps.leer_puerto, args=(estado_gps, parar), daemon=True),
              threading.Thread(target=hilo_red, args=(config,), daemon=True),
@@ -413,6 +431,41 @@ def main():
                     log(f"Alerta: exceso de velocidad {exceso.maxima_kmh:.0f} km/h (limite {limite})")
                     sincronizar_ya.set()
 
+            # posicion con el vehiculo estacionado: al tener senal y luego cada 5 min
+            if (not recorrido.id and senal_buena(lectura) and
+                    (ultima_posicion is None or ahora - ultima_posicion >= SEGUNDOS_POSICION_ESTACIONADO)):
+                almacen.encolar(db, "posicion", dict(
+                    fecha=almacen.ahora_utc(), latitud=lectura["latitud"], longitud=lectura["longitud"],
+                    velocidad_kmh=lectura["velocidad_kmh"]))
+                if ultima_posicion is None:
+                    log("Posicion GPS disponible; se reporta con el vehiculo estacionado")
+                    sincronizar_ya.set()
+                ultima_posicion = ahora
+
+            if medidor and (ultima_bateria is None or ahora - ultima_bateria >= SEGUNDOS_BATERIA):
+                ultima_bateria = ahora
+                medida = medidor.leer()
+                if medida:
+                    if bateria_actual is None:
+                        log(f"Bateria {medida['porcentaje']} % ({medida['voltaje']} V)",
+                            "cargando" if medida["cargando"] else "sin cargador")
+                    bateria_actual = medida
+                    accion = vigilante.actualizar(medida["porcentaje"], medida["cargando"])
+                    if accion in ("alerta", "rearmar"):
+                        almacen.guardar_ajuste(db, "bateria_alerta_enviada", vigilante.alerta_enviada)
+                    if accion == "alerta":
+                        almacen.encolar(db, "alerta", dict(
+                            sesion_id=recorrido.id, tipo="bateria_baja", fecha=almacen.ahora_utc(),
+                            **posicion_actual(estado_gps),
+                            detalle=dict(porcentaje=medida["porcentaje"], voltaje=medida["voltaje"])))
+                        log(f"Alerta: bateria baja {medida['porcentaje']} %")
+                        sincronizar_ya.set()
+                    elif accion == "apagar":
+                        # no se respeta no_apagar: sin bateria la Pi se apagaria de golpe
+                        log(f"Bateria al {medida['porcentaje']} % sin cargador: apagado seguro")
+                        apagar = True
+                        break
+
             if esp32 and apagado.actualizar(movimiento.hay_movimiento(muestra, velocidad),
                                             recorrido.id is not None, ahora):
                 if NO_APAGAR.exists():
@@ -441,6 +494,8 @@ def main():
         db.close()
         if bus:
             bus.close()
+        if medidor:
+            medidor.cerrar()
         if esp32:
             esp32.cerrar()
         log("DashGuard detenido")

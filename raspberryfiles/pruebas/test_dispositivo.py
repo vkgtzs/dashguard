@@ -200,6 +200,18 @@ class PruebasColaYSincronizacion(unittest.TestCase):
         self.assertEqual(sincronizar.consultar_estado(self.db, self.CONFIG, estado), [])
         self.assertEqual(almacen.leer_ajuste(self.db, "limite_velocidad_kmh"), 60)
 
+    def test_estado_reporta_la_bateria(self):
+        urls = []
+
+        def estado(peticion, timeout):
+            urls.append(peticion.full_url)
+            return RespuestaFalsa(json.dumps(dict(limite_velocidad_kmh=60, conductores=[],
+                                                  comandos=[])).encode())
+        sincronizar.consultar_estado(self.db, self.CONFIG, estado)
+        sincronizar.consultar_estado(self.db, self.CONFIG, estado, bateria=dict(porcentaje=57, cargando=True))
+        self.assertTrue(urls[0].endswith("/dispositivo/estado"))
+        self.assertTrue(urls[1].endswith("/dispositivo/estado?bateria=57&cargando=1"))
+
     def test_backend_debe_ser_https(self):
         ruta = Path(self.carpeta.name) / "dispositivo.json"
         ruta.write_text(json.dumps(dict(self.CONFIG, backend="http://ejemplo.invalid")))

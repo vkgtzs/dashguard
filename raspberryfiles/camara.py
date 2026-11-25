@@ -19,6 +19,10 @@ BITRATE_VIDEO = 2_000_000
 SEGUNDOS_VIDEO = 10
 ESPERA_EXPOSICION_S = 1.5
 
+# La camara va montada de cabeza en la carcasa: se gira 180 grados (volteo horizontal + vertical).
+# Aplica a fotos, videos y a los cuadros del reconocimiento facial.
+GIRAR_180 = True
+
 PIN_LED = 26  # GPIO26, pin fisico 37
 _led = None
 
@@ -48,13 +52,20 @@ def _camara_en_uso():
             led.off()
 
 
+def _orientacion():
+    from libcamera import Transform
+
+    return Transform(hflip=GIRAR_180, vflip=GIRAR_180)
+
+
 def tomar_foto(ruta):
     from picamera2 import Picamera2
 
     with candado, _camara_en_uso():
         camara = Picamera2()
         try:
-            camara.configure(camara.create_still_configuration(main={"size": RESOLUCION_FOTO}))
+            camara.configure(camara.create_still_configuration(main={"size": RESOLUCION_FOTO},
+                                                             transform=_orientacion()))
             camara.options["quality"] = 85
             camara.start()
             time.sleep(ESPERA_EXPOSICION_S)
@@ -74,7 +85,8 @@ def grabar_video(ruta, segundos=SEGUNDOS_VIDEO):
         try:
             camara.configure(camara.create_video_configuration(
                 main={"size": RESOLUCION_VIDEO},
-                controls={"FrameRate": CUADROS_VIDEO}))
+                controls={"FrameRate": CUADROS_VIDEO},
+                transform=_orientacion()))
             camara.start_recording(H264Encoder(bitrate=BITRATE_VIDEO), FfmpegOutput(str(ruta)))
             time.sleep(segundos)
             camara.stop_recording()
@@ -94,7 +106,8 @@ def cuadros(tamano=RESOLUCION_ANALISIS):
         camara = Picamera2()
         try:
             camara.configure(camara.create_preview_configuration(
-                main={"size": tamano, "format": "RGB888"}))
+                main={"size": tamano, "format": "RGB888"},
+                transform=_orientacion()))
             camara.start()
             time.sleep(ESPERA_EXPOSICION_S)
             yield lambda: camara.capture_array("main")
